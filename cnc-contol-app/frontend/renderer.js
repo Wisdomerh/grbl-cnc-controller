@@ -1,3 +1,5 @@
+import GCodeVisualizer from './visualizer.js';
+
 const { ipcRenderer } = require('electron');
 
 // DOM elements
@@ -62,10 +64,13 @@ gcodeFileInput.addEventListener('change', (event) => {
     }
 });
 
+const visualizer = new GCodeVisualizer('visualizer');
 // Send G-code
 sendGcodeBtn.addEventListener('click', () => {
     const gcode = gcodeInput.value;
     ipcRenderer.send('send_gcode', gcode);
+    visualizer.clear();
+    visualizer.drawPath(gcode);
 });
 
 // IPC listeners for responses from the main process
