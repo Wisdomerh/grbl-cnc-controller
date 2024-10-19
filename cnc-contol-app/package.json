@@ -1,0 +1,16 @@
+{
+  "name": "cnc-control-app",
+  "version": "1.0.0",
+  "description": "CNC Control Application",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.0.1",
+    "electron-builder": "^25.1.8"
+  }
+}
