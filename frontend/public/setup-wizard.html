@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CNC Setup Wizard</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono&display=swap">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
+  <link rel="stylesheet" href="../src/assets/setup-wizard.css">
+</head>
+<body>
+  <div class="setup-wizard">
+    <div class="wizard-container">
+      <header class="wizard-header">
+        <div class="logo">
+          <i class="fas fa-microchip"></i>
+          <h1>Setup wizard</h1>
+        </div>
+        <button class="close-btn" id="close-wizard">&times;</button>
+      </header>
+      
+      <div class="wizard-content">
+        <aside class="steps-sidebar">
+          <h2>Steps</h2>
+          <ol class="steps-list">
+            <li class="step active" data-step="welcome">Connection</li>
+            <li class="step" data-step="import-settings">Import settings</li>
+            <li class="step" data-step="motor-wiring">Motor wiring</li>
+            <li class="step" data-step="step-calibration">Step calibration</li>
+            <li class="step" data-step="limit-switches">Limit switches</li>
+            <li class="step" data-step="homing">Homing</li>
+            <li class="step" data-step="soft-limits">Soft limits</li>
+          </ol>
+        </aside>
+        
+        <main class="step-content">
+          <!-- Welcome/Connection Step -->
+          <section class="step-panel active" id="welcome">
+            <h2>Connection</h2>
+            <div class="welcome-content">
+              <div class="info-box">
+                <i class="fas fa-info-circle"></i>
+                <p>Connect to your machine and start the setup process.</p>
+              </div>
+              <div class="connection-status">
+                <div class="status-indicator">
+                  <i class="fas fa-check-circle success-icon"></i>
+                  <span id="connection-status-text">Connected to GRBL 1.1h</span>
+                </div>
+              </div>
+            </div>
+          </section>
+          
+          <!-- Import Settings Step -->
+          <section class="step-panel" id="import-settings">
+            <h2>Import settings</h2>
+            <p>If your machine came with a configuration file or if you previously made a backup of your settings you can load them here. Otherwise click next to continue.</p>
+            <div class="import-settings-buttons">
+              <button id="open-settings-file-btn" class="btn-secondary">
+                Open settings file...
+              </button>
+              <button id="save-settings-file-btn" class="btn-secondary">
+                Save current settings...
+              </button>
+            </div>
+          </section>
+          
+          <!-- Motor Wiring Step -->
+          <section class="step-panel" id="motor-wiring">
+            <h2>Motor wiring</h2>
+            <p>We will now test that your motors are wired correctly. Test each axis using the step buttons.</p>
+            
+            <div class="motor-test-grid">
+              <div class="axis-test">
+                <div class="test-buttons">
+                  <button class="test-btn" data-axis="X" data-dir="-1">X-</button>
+                  <button class="test-btn" data-axis="X" data-dir="1">X+</button>
+                </div>
+                <div class="motor-direction">
+                  <input type="checkbox" id="invert-x" class="toggle-input">
+                  <label for="invert-x">Reverse direction</label>
+                </div>
+              </div>
+              
+              <div class="axis-test">
+                <div class="test-buttons">
+                  <button class="test-btn" data-axis="Y" data-dir="-1">Y-</button>
+                  <button class="test-btn" data-axis="Y" data-dir="1">Y+</button>
+                </div>
+                <div class="motor-direction">
+                  <input type="checkbox" id="invert-y" class="toggle-input">
+                  <label for="invert-y">Reverse direction</label>
+                </div>
+              </div>
+              
+              <div class="axis-test">
+                <div class="test-buttons">
+                  <button class="test-btn" data-axis="Z" data-dir="-1">Z-</button>
+                  <button class="test-btn" data-axis="Z" data-dir="1">Z+</button>
+                </div>
+                <div class="motor-direction">
+                  <input type="checkbox" id="invert-z" class="toggle-input">
+                  <label for="invert-z">Reverse direction</label>
+                </div>
+              </div>
+            </div>
+          </section>
+          
+          <!-- Step Calibration -->
+          <section class="step-panel" id="step-calibration">
+            <h2>Step calibration</h2>
+            <p>We will now attempt to calibrate your machine. Try <strong>moving</strong> the machine and <strong>measure</strong> the results, then <strong>calibrate</strong> to the estimated steps.</p>
+            
+            <div class="calibration-grid">
+              <div class="move-section">
+                <h3>Move</h3>
+                <button id="reset-to-zero-btn" class="btn-secondary">Reset to zero</button>
+                
+                <div class="axis-calibration">
+                  <div class="calibration-test">
+                    <button id="x-minus-btn" class="test-btn">X-</button>
+                    <span id="x-distance" class="distance-display">0.0 mm</span>
+                    <button id="x-plus-btn" class="test-btn">X+</button>
+                  </div>
+                </div>
+                
+                <div class="axis-calibration">
+                  <div class="calibration-test">
+                    <button id="y-minus-btn" class="test-btn">Y-</button>
+                    <span id="y-distance" class="distance-display">0.0 mm</span>
+                    <button id="y-plus-btn" class="test-btn">Y+</button>
+                  </div>
+                </div>
+                
+                <div class="axis-calibration">
+                  <div class="calibration-test">
+                    <button id="z-minus-btn" class="test-btn">Z-</button>
+                    <span id="z-distance" class="distance-display">0.0 mm</span>
+                    <button id="z-plus-btn" class="test-btn">Z+</button>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="measure-section">
+                <h3>Measure</h3>
+                <p class="help-text">Measure the actual distance moved with a ruler or caliper.</p>
+                
+                <div class="form-group">
+                  <label>X Actual movement:</label>
+                  <input type="number" id="x-actual-distance" value="" placeholder="0.0" step="0.1">
+                  <span>mm</span>
+                </div>
+                
+                <div class="form-group">
+                  <label>Y Actual movement:</label>
+                  <input type="number" id="y-actual-distance" value="" placeholder="0.0" step="0.1">
+                  <span>mm</span>
+                </div>
+                
+                <div class="form-group">
+                  <label>Z Actual movement:</label>
+                  <input type="number" id="z-actual-distance" value="" placeholder="0.0" step="0.1">
+                  <span>mm</span>
+                </div>
+              </div>
+              
+              <div class="calibrate-section">
+                <h3>Calibrate</h3>
+                <p class="help-text">After measuring the actual distance, click update to calculate the correct steps per mm.</p>
+                
+                <div class="form-group">
+                  <label>X Steps per millimeter:</label>
+                  <span id="x-steps-estimate" class="steps-estimate">00.000 steps/mm est.</span>
+                  <input type="number" id="steps-x" value="">
+                  <button id="x-update-btn" class="btn-primary">Update</button>
+                </div>
+                
+                <div class="form-group">
+                  <label>Y Steps per millimeter:</label>
+                  <span id="y-steps-estimate" class="steps-estimate">00.000 steps/mm est.</span>
+                  <input type="number" id="steps-y" value="">
+                  <button id="y-update-btn" class="btn-primary">Update</button>
+                </div>
+                
+                <div class="form-group">
+                  <label>Z Steps per millimeter:</label>
+                  <span id="z-steps-estimate" class="steps-estimate">00.000 steps/mm est.</span>
+                  <input type="number" id="steps-z" value="">
+                  <button id="z-update-btn" class="btn-primary">Update</button>
+                </div>
+              </div>
+            </div>
+          </section>
+          
+          <!-- Limit Switches -->
+          <section class="step-panel" id="limit-switches">
+            <h2>Limit switches</h2>
+            <p>Limit switches will prevent the machine to move beyond its physical limits.</p>
+            
+            <div class="limit-switches-options">
+              <div class="switch-config">
+                <input type="checkbox" id="enable-limit-switches" checked>
+                <label for="enable-limit-switches">Enable limit switches</label>
+              </div>
+              
+              <div id="limit-switches-config">
+                <p>Try triggering each limit switch manually. The button will turn green when a switch is activated.</p>
+                
+                <div class="switch-test-grid">
+                  <div class="switch-test-container">
+                    <button class="btn-primary" id="x-switch-test">X</button>
+                    <span class="switch-status">Not triggered</span>
+                  </div>
+                  <div class="switch-test-container">
+                    <button class="btn-primary" id="y-switch-test">Y</button>
+                    <span class="switch-status">Not triggered</span>
+                  </div>
+                  <div class="switch-test-container">
+                    <button class="btn-primary" id="z-switch-test">Z</button>
+                    <span class="switch-status">Not triggered</span>
+                  </div>
+                </div>
+                
+                <div class="switch-config">
+                  <input type="checkbox" id="invert-limit-switches">
+                  <label for="invert-limit-switches">Invert limit switches</label>
+                </div>
+              </div>
+            </div>
+          </section>
+          
+          <!-- Homing -->
+          <section class="step-panel" id="homing">
+            <h2>Homing</h2>
+            <p>Homing is a method of finding the absolute machine coordinates.</p>
+            
+            <div class="homing-options">
+              <div class="switch-config">
+                <input type="checkbox" id="enable-homing" checked>
+                <label for="enable-homing">Enable homing</label>
+              </div>
+              
+              <div id="homing-config">
+                <p>Take your time to figure out in which direction your limit switches are</p>
+                
+                <div class="homing-direction-grid">
+                  <select id="x-homing-direction">
+                    <option value="+X">+X</option>
+                    <option value="-X" selected>-X</option>
+                  </select>
+                  
+                  <select id="y-homing-direction">
+                    <option value="+Y">+Y</option>
+                    <option value="-Y" selected>-Y</option>
+                  </select>
+                  
+                  <select id="z-homing-direction">
+                    <option value="+Z">+Z</option>
+                    <option value="-Z" selected>-Z</option>
+                  </select>
+                </div>
+                
+                <p>Now test a homing cycle, but <strong>be prepared to abort</strong> if it's moving in the wrong direction!</p>
+                
+                <div class="homing-test">
+                  <button id="test-homing-btn" class="btn-primary">Try homing</button>
+                  <button id="abort-homing-btn" class="btn-danger">Abort</button>
+                </div>
+              </div>
+            </div>
+          </section>
+          
+          <!-- Soft Limits -->
+          <section class="step-panel" id="soft-limits">
+            <h2>Soft limits</h2>
+            <p>Soft limits will prevent the machine to move beyond it's safe work area.</p>
+            
+            <div class="soft-limits-options">
+              <div class="switch-config">
+                <input type="checkbox" id="enable-soft-limits" checked>
+                <label for="enable-soft-limits">Enable soft limits</label>
+              </div>
+              
+              <div id="soft-limits-config">
+                <p>Home your machine and then move it to the maximum safe position in the opposite direction. Use this position as your soft limit.</p>
+                
+                <div class="soft-limits-sections">
+                  <div class="home-section">
+                    <h3>Home</h3>
+                    <button id="home-machine-btn" class="btn-primary">Home your machine</button>
+                  </div>
+                  
+                  <div class="move-section">
+                    <h3>Move</h3>
+                    <select id="step-size">
+                      <option value="10.0">Step 10.0 mm</option>
+                      <option value="1.0">Step 1.0 mm</option>
+                      <option value="0.1">Step 0.1 mm</option>
+                    </select>
+                    
+                    <div class="axis-movement">
+                      <button id="x-minus-move" class="btn-secondary">X-</button>
+                      <span class="position-display" id="x-position-display">0.0 mm</span>
+                      <button id="x-plus-move" class="btn-secondary">X+</button>
+                    </div>
+                    
+                    <div class="axis-movement">
+                      <button id="y-minus-move" class="btn-secondary">Y-</button>
+                      <span class="position-display" id="y-position-display">0.0 mm</span>
+                      <button id="y-plus-move" class="btn-secondary">Y+</button>
+                    </div>
+                    
+                    <div class="axis-movement">
+                      <button id="z-minus-move" class="btn-secondary">Z-</button>
+                      <span class="position-display" id="z-position-display">0.0 mm</span>
+                      <button id="z-plus-move" class="btn-secondary">Z+</button>
+                    </div>
+                  </div>
+                  
+                  <div class="update-settings-section">
+                    <h3>Update settings</h3>
+                    <div class="update-travel-limits">
+                      <label>X max travel:</label>
+                      <input type="number" id="max-travel-x" value="200.0">
+                      <button id="update-travel-x" class="btn-secondary">Update</button>
+                    </div>
+                    
+                    <div class="update-travel-limits">
+                      <label>Y max travel:</label>
+                      <input type="number" id="max-travel-y" value="200.0">
+                      <button id="update-travel-y" class="btn-secondary">Update</button>
+                    </div>
+                    
+                    <div class="update-travel-limits">
+                      <label>Z max travel:</label>
+                      <input type="number" id="max-travel-z" value="100.0">
+                      <button id="update-travel-z" class="btn-secondary">Update</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+      
+      <footer class="wizard-footer">
+        <div class="navigation-buttons">
+          <button id="back-btn" class="btn-secondary" disabled>
+            &lt; Back
+          </button>
+          <button id="next-btn" class="btn-primary">
+            Next &gt;
+          </button>
+          <button id="finish-btn" class="btn-success" style="display: none;">
+            Finish
+          </button>
+        </div>
+        <div class="additional-buttons">
+          <button id="cancel-btn" class="btn-danger">
+            Cancel
+          </button>
+          <button id="help-btn" class="btn-info">
+            Help
+          </button>
+        </div>
+      </footer>
+    </div>
+  </div>
+  
+  <script type="module" src="../src/setup-wizard.js"></script>
+</body>
+</html>

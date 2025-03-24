@@ -1,0 +1,532 @@
+/* Setup Wizard Styles - Scoped to prevent affecting main application */
+#setup-wizard-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1000;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: none;
+}
+
+.setup-wizard .wizard-container {
+  background-color: #f4f5f7;
+  width: 90%;
+  max-width: 1000px; /* Increased from 800px */
+  height: 650px; /* Increased from 520px */
+  margin: 2.5% auto;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.setup-wizard .wizard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1.25rem;
+  background: linear-gradient(to right, #2c3e50, #4CA1AF);
+  color: white;
+  flex-shrink: 0;
+}
+
+.setup-wizard .wizard-header .logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.setup-wizard .wizard-header .logo i {
+  font-size: 1.25rem;
+}
+
+.setup-wizard .wizard-header h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.setup-wizard .close-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.setup-wizard .wizard-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.setup-wizard .steps-sidebar {
+  width: 220px;
+  background-color: #f4f5f7;
+  border-right: 1px solid #ddd;
+  padding: 1rem;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.setup-wizard .steps-sidebar h2 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 0.5rem;
+}
+
+.setup-wizard .steps-list {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin: 0;
+}
+
+.setup-wizard .steps-list .step {
+  padding: 0.5rem 0;
+  cursor: pointer;
+  transition: color 0.2s;
+  color: #555;
+}
+
+.setup-wizard .steps-list .step.active {
+  font-weight: 600;
+  color: #4CA1AF;
+}
+
+.setup-wizard .steps-list .step:hover {
+  color: #2c3e50;
+}
+
+.setup-wizard .step-content {
+  flex: 1;
+  padding: 1.25rem;
+  overflow-y: auto;
+  background-color: white;
+  min-height: 480px; /* Increased from 380px */
+}
+
+.setup-wizard .step-panel {
+  display: none;
+  height: 100%;
+}
+
+.setup-wizard .step-panel.active {
+  display: block;
+}
+
+.setup-wizard .step-panel h2 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: #2c3e50;
+  font-size: 1.3rem;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 0.5rem;
+}
+
+.setup-wizard .info-box {
+  background-color: #e8f4f8;
+  border-left: 4px solid #4CA1AF;
+  padding: 0.75rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 4px;
+}
+
+.setup-wizard .info-box i {
+  font-size: 1.25rem;
+  color: #4CA1AF;
+}
+
+.setup-wizard .form-group {
+  margin-bottom: 1rem;
+}
+
+.setup-wizard .form-group label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-weight: 500;
+  color: #333;
+}
+
+.setup-wizard .form-group input,
+.setup-wizard .form-group select {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.setup-wizard .form-group input:focus,
+.setup-wizard .form-group select:focus {
+  border-color: #4CA1AF;
+  outline: none;
+}
+
+.setup-wizard .connection-status {
+  margin-bottom: 1.25rem;
+  padding: 0.75rem;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.setup-wizard .status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.setup-wizard .success-icon {
+  color: #28a745;
+  font-size: 1.25rem;
+}
+
+.setup-wizard .error-icon {
+  color: #dc3545;
+  font-size: 1.25rem;
+}
+
+.setup-wizard .import-settings-buttons {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+/* Grid layouts for multi-column sections */
+.setup-wizard .motor-test-grid,
+.setup-wizard .switch-test-grid,
+.setup-wizard .homing-direction-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.setup-wizard .calibration-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.setup-wizard .move-section,
+.setup-wizard .measure-section,
+.setup-wizard .calibrate-section,
+.setup-wizard .home-section,
+.setup-wizard .update-settings-section {
+  padding: 0.75rem;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  background-color: #f9f9f9;
+}
+
+.setup-wizard .move-section h3,
+.setup-wizard .measure-section h3,
+.setup-wizard .calibrate-section h3,
+.setup-wizard .home-section h3,
+.setup-wizard .update-settings-section h3 {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  font-size: 1rem;
+  color: #2c3e50;
+}
+
+/* Styling for test buttons and axis movement */
+.setup-wizard .test-buttons,
+.setup-wizard .calibration-test,
+.setup-wizard .axis-movement {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.setup-wizard .motor-direction {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+/* Limit switches styling */
+.setup-wizard .limit-switches-options,
+.setup-wizard .homing-options,
+.setup-wizard .soft-limits-options {
+  margin-top: 0.75rem;
+}
+
+.setup-wizard .switch-config {
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.setup-wizard .switch-test-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.setup-wizard .switch-status {
+  font-size: 0.8rem;
+  color: #6c757d;
+}
+
+.setup-wizard .switch-status.triggered {
+  color: #28a745;
+  font-weight: 600;
+}
+
+/* Position and distance displays */
+.setup-wizard .distance-display,
+.setup-wizard .position-display {
+  font-family: 'Roboto Mono', monospace;
+  font-weight: 600;
+  min-width: 65px;
+  text-align: center;
+  font-size: 0.9rem;
+  color: #333;
+}
+
+.setup-wizard .steps-estimate {
+  display: block;
+  color: #4CA1AF;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+  font-family: 'Roboto Mono', monospace;
+  font-size: 0.85rem;
+}
+
+/* Update travel settings */
+.setup-wizard .update-travel-limits {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.setup-wizard .update-travel-limits label {
+  min-width: 80px;
+  font-size: 0.9rem;
+}
+
+.setup-wizard .update-travel-limits input {
+  width: 80px;
+  text-align: right;
+}
+
+/* Footer styling */
+.setup-wizard .wizard-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1.25rem;
+  background-color: #f8f9fa;
+  border-top: 1px solid #e9ecef;
+  flex-shrink: 0;
+}
+
+.setup-wizard .navigation-buttons {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.setup-wizard .additional-buttons {
+  display: flex;
+  gap: 0.75rem;
+}
+
+/* Button styles */
+.setup-wizard button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.setup-wizard button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.setup-wizard .btn-primary {
+  background-color: #4CA1AF;
+  color: white;
+}
+
+.setup-wizard .btn-primary:hover:not(:disabled) {
+  background-color: #3a8a98;
+}
+
+.setup-wizard .btn-secondary {
+  background-color: #6c757d;
+  color: white;
+}
+
+.setup-wizard .btn-secondary:hover:not(:disabled) {
+  background-color: #5a6268;
+}
+
+.setup-wizard .btn-danger {
+  background-color: #dc3545;
+  color: white;
+}
+
+.setup-wizard .btn-danger:hover:not(:disabled) {
+  background-color: #c82333;
+}
+
+.setup-wizard .btn-success {
+  background-color: #28a745;
+  color: white;
+}
+
+.setup-wizard .btn-success:hover:not(:disabled) {
+  background-color: #218838;
+}
+
+.setup-wizard .btn-info {
+  background-color: #17a2b8;
+  color: white;
+}
+
+.setup-wizard .btn-info:hover:not(:disabled) {
+  background-color: #138496;
+}
+
+.setup-wizard .test-btn {
+  min-width: 45px;
+  padding: 0.4rem 0.75rem;
+  background-color: #4CA1AF;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.setup-wizard .test-btn:hover:not(:disabled) {
+  background-color: #3a8a98;
+}
+
+.setup-wizard .test-btn.active,
+.setup-wizard .btn-primary.active {
+  background-color: #28a745;
+  border-color: #28a745;
+  box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+}
+
+/* Help dialog styling */
+.setup-wizard #help-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+}
+
+.setup-wizard .help-dialog-content {
+  background-color: white;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 90%;
+  padding: 1.25rem;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.setup-wizard .help-dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.setup-wizard .help-dialog-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.setup-wizard .close-help-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.setup-wizard .help-dialog-body {
+  margin-bottom: 1.25rem;
+  white-space: pre-line;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.setup-wizard .help-dialog-footer {
+  text-align: right;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .setup-wizard .wizard-container {
+    width: 95%;
+    height: 90%;
+    margin: 5% auto;
+  }
+
+  .setup-wizard .wizard-content {
+    flex-direction: column;
+  }
+  
+  .setup-wizard .steps-sidebar {
+    width: 240px; /* Increased from 220px */
+    background-color: #f4f5f7;
+    border-right: 1px solid #ddd;
+    padding: 1rem;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+
+  .setup-wizard .step-content {
+    min-height: auto;
+  }
+  
+  .setup-wizard .motor-test-grid,
+  .setup-wizard .calibration-grid,
+  .setup-wizard .switch-test-grid,
+  .setup-wizard .homing-direction-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Animation for state changes */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.setup-wizard .step-panel.active {
+  animation: fadeIn 0.3s ease;
+}
