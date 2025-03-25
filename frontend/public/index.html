@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart CNC Control</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
+    <link rel="stylesheet" href="../src/assets/styles.css">
+    <!-- Third-party libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  </head>
+  <body>
+    <div class="app-container">
+      <header class="header">
+        <div class="header-logo">
+          <div class="logo-icon">
+            <i class="fas fa-microchip"></i>
+          </div>
+          <h1>Smart CNC Control</h1>
+        </div>
+        <div class="server-status-indicator">
+          <i class="fas fa-server"></i>&nbsp;
+          Server: <span id="server-status" class="disconnected">Disconnected</span>
+        </div>
+        <div class="emergency-stop-container">
+          <button id="emergency-stop-btn" class="emergency-stop">
+            <i class="fas fa-exclamation-triangle"></i>&nbsp;
+            EMERGENCY STOP
+          </button>
+        </div>
+      </header>
+      
+      <aside class="sidebar">
+        <div class="connection-panel">
+          <div class="panel-header">
+            <h2><i class="fas fa-plug"></i>&nbsp; Connection</h2>
+          </div>
+          <div class="form-group">
+            <label for="port-select">Port:</label>
+            <select id="port-select">
+              <option value="">Select a port</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="baud-select">Baud Rate:</label>
+            <select id="baud-select">
+              <option value="9600">9600</option>
+              <option value="19200">19200</option>
+              <option value="38400">38400</option>
+              <option value="57600">57600</option>
+              <option value="115200" selected>115200</option>
+              <option value="230400">230400</option>
+            </select>
+          </div>
+          
+          <div class="form-row">
+            <button id="refresh-btn">
+              <i class="fas fa-sync-alt"></i>&nbsp; Refresh
+            </button>
+            <button id="connect-btn" class="btn-primary">
+              <i class="fas fa-link"></i>&nbsp; Connect
+            </button>
+          </div>
+          <button id="disconnect-btn" class="btn-danger" disabled>
+            <i class="fas fa-unlink"></i>&nbsp; Disconnect
+          </button>
+        </div>
+        
+        <div class="machine-status">
+          <div class="panel-header">
+            <h2><i class="fas fa-info-circle"></i>&nbsp; Machine Status</h2>
+            <button id="setup-btn" class="btn-primary">
+              <i class="fas fa-cog"></i>
+            </button>
+          </div>
+          <div class="status-item">
+            <span>Connection:</span>
+            <span id="connection-status" class="disconnected">Disconnected</span>
+          </div>
+          <div class="status-item">
+            <span>State:</span>
+            <span id="machine-state">Unknown</span>
+          </div>
+          
+          <!-- Enhanced position display with both work and machine coordinates -->
+          <div class="positions-panel">
+            <table class="position-table">
+              <thead>
+                <tr>
+                  <th>Axis</th>
+                  <th>Work (mm)</th>
+                  <th>Machine (mm)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>X</td>
+                  <td id="work-pos-x">0.000</td>
+                  <td id="machine-pos-x">0.000</td>
+                </tr>
+                <tr>
+                  <td>Y</td>
+                  <td id="work-pos-y">0.000</td>
+                  <td id="machine-pos-y">0.000</td>
+                </tr>
+                <tr>
+                  <td>Z</td>
+                  <td id="work-pos-z">0.000</td>
+                  <td id="machine-pos-z">0.000</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </aside>
+      
+      <main class="main-content">
+        <div class="tab-container">
+          <div class="tab-buttons">
+            <div class="tab-button active" data-tab="control">
+              <i class="fas fa-gamepad"></i>&nbsp; Machine Control
+            </div>
+            <div class="tab-button" data-tab="gcode">
+              <i class="fas fa-code"></i>&nbsp; G-Code
+            </div>
+          </div>
+          
+          <div class="tab-content active" id="control-tab">
+            <h2>Machine Control</h2>
+            <div class="control-panel">
+              <div class="step-size">
+                <label>Step Size:</label>
+                <div class="step-buttons">
+                  <button class="step-btn" data-step="0.1">0.1mm</button>
+                  <button class="step-btn" data-step="1.0">1mm</button>
+                  <button class="step-btn active" data-step="10.0">10mm</button>
+                  <button class="step-btn" data-step="50.0">50mm</button>
+                  <button class="step-btn" data-step="100.0">100mm</button>
+                </div>
+              </div>
+              <div class="feed-rate">
+                <label>Feed Rate: <span id="feed-rate-value">500</span> mm/min</label>
+                <input type="range" id="feed-rate-slider" min="10" max="1000" step="10" value="500">
+              </div>
+              <div class="jog-controls-container">
+                <h3><i class="fas fa-arrows-alt"></i>&nbsp; Jog Controls</h3>
+                <div class="jog-controls">
+                  <div class="jog-grid">
+                    <button class="jog-btn" data-axis="X" data-dir="-1" data-axis2="Y" data-dir2="1">
+                      ↖
+                    </button>
+                    <button class="jog-btn" data-axis="Y" data-dir="1">
+                      <i class="fas fa-arrow-up"></i>
+                    </button>
+                    <button class="jog-btn" data-axis="X" data-dir="1" data-axis2="Y" data-dir2="1">
+                      ↗
+                    </button>
+                    <button class="jog-btn" data-axis="X" data-dir="-1">
+                      <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <button class="jog-btn home-btn">
+                      <i class="fas fa-home"></i>
+                    </button>
+                    <button class="jog-btn" data-axis="X" data-dir="1">
+                      <i class="fas fa-arrow-right"></i>
+                    </button>
+                    <button class="jog-btn" data-axis="X" data-dir="-1" data-axis2="Y" data-dir2="-1">
+                      ↙
+                    </button>
+                    <button class="jog-btn" data-axis="Y" data-dir="-1">
+                      <i class="fas fa-arrow-down"></i>
+                    </button>
+                    <button class="jog-btn" data-axis="X" data-dir="1" data-axis2="Y" data-dir2="-1">
+                      ↘
+                    </button>
+                  </div>
+                  <button class="jog-btn z-plus" data-axis="Z" data-dir="1">Z+</button>
+                  <button class="jog-btn z-minus" data-axis="Z" data-dir="-1">Z-</button>
+                </div>
+              </div>
+              <!-- Machine actions buttons -->
+              <div class="machine-actions">
+                <button id="unlock-btn">
+                  <i class="fas fa-unlock"></i>&nbsp; Unlock ($X)
+                </button>
+                <button id="reset-btn">
+                  <i class="fas fa-sync"></i>&nbsp; Soft Reset (Ctrl-X)
+                </button>
+                <div class="zero-btns">
+                  <button id="zero-x-btn">
+                    <i class="fas fa-thumbtack"></i>&nbsp; Zero X
+                  </button>
+                  <button id="zero-y-btn">
+                    <i class="fas fa-thumbtack"></i>&nbsp; Zero Y
+                  </button>
+                  <button id="zero-z-btn">
+                    <i class="fas fa-thumbtack"></i>&nbsp; Zero Z
+                  </button>
+                  <button id="zero-all-btn">
+                    <i class="fas fa-thumbtack"></i>&nbsp; Zero All
+                  </button>
+                  <button id="return-to-zero-btn">
+                    <i class="fas fa-crosshairs"></i>&nbsp; Return to Zero
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="tab-content" id="gcode-tab">
+            <h2>G-Code Viewer</h2>
+            <div class="file-upload-container">
+              <div class="file-upload-controls">
+                <label for="gcode-file-input" class="file-upload-label">
+                  <i class="fas fa-file-code"></i>&nbsp; G-code File:
+                </label>
+                <div class="file-input-wrapper">
+                  <input type="file" id="gcode-file-input" accept=".gcode,.nc,.ngc,.tap,.txt,.cnc">
+                  <label for="gcode-file-input" class="custom-file-input">
+                    <i class="fas fa-upload"></i>
+                    <span>Choose File</span>
+                  </label>
+                  <span id="file-name-display">No file selected</span>
+                </div>
+              </div>
+              <div class="recent-files">
+                <h3><i class="fas fa-history"></i>&nbsp; Recent Files</h3>
+                <ul id="recent-files-list">
+                  <!-- Recent files will be added here dynamically -->
+                  <li style="font-style: italic; color: #999;">No recent files</li>
+                </ul>
+              </div>
+            </div>
+            <div class="visualizer-controls">
+              <div>
+                <button id="parse-gcode-btn">
+                  <i class="fas fa-play"></i>&nbsp; Parse & Visualize
+                </button>
+                <button id="clear-gcode-btn">
+                  <i class="fas fa-trash-alt"></i>&nbsp; Clear
+                </button>
+              </div>
+              <div class="execution-controls">
+                <button id="run-gcode-btn">
+                  <i class="fas fa-play"></i>&nbsp; Run G-Code
+                </button>
+                <button id="pause-resume-btn" class="pause" disabled>
+                  <i class="fas fa-pause"></i>&nbsp; Pause
+                </button>
+                <button id="stop-gcode-btn" disabled>
+                  <i class="fas fa-stop"></i>&nbsp; Stop
+                </button>
+              </div>
+            </div>
+            
+            <textarea id="gcode-editor" class="gcode-editor" placeholder="Enter G-code here...">G21 ; Set units to mm
+G90 ; Absolute positioning
+G0 Z5 ; Raise Z
+G0 X0 Y0 ; Move to origin
+G1 Z0 F300 ; Lower Z
+G1 X50 Y0 F500 ; Draw line
+G1 X50 Y50 ; Draw line
+G1 X0 Y50 ; Draw line
+G1 X0 Y0 ; Draw line
+G0 Z5 ; Raise Z
+G0 X0 Y0 ; Return to origin</textarea>
+            
+            <div class="visualizer-container" id="visualizer-container">
+              <div class="visualizer-overlay" id="visualizer-info">Position: X:0.000 Y:0.000 Z:0.000</div>
+            </div>
+          </div>
+        </div>
+      </main>
+      
+      <div class="console-container">
+        <div class="console-header">
+          <h2><i class="fas fa-terminal"></i>&nbsp; Console</h2>
+          <button id="clear-console-btn">
+            <i class="fas fa-eraser"></i>&nbsp; Clear Console
+          </button>
+        </div>
+        <div class="console" id="console">
+          <!-- Console messages will appear here -->
+          <div class="message system">
+            <span class="timestamp">[10:00:00]</span>
+            <span class="message-content">System initialized. Ready to connect.</span>
+          </div>
+        </div>
+      </div>
+
+    <!-- Setup Modal -->
+    <div class="modal-overlay" id="setup-modal-overlay">
+      <div class="setup-modal">
+        <div class="modal-header">
+          <h2><i class="fas fa-cog"></i>&nbsp; Machine Setup</h2>
+          <button class="modal-close" id="close-setup-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="setup-form">
+            <div class="form-group">
+              <label>Steps per mm (X):</label>
+              <input type="number" id="steps-x" value="80" min="1" step="0.1">
+            </div>
+            <div class="form-group">
+              <label>Steps per mm (Y):</label>
+              <input type="number" id="steps-y" value="80" min="1" step="0.1">
+            </div>
+            <div class="form-group">
+              <label>Steps per mm (Z):</label>
+              <input type="number" id="steps-z" value="80" min="1" step="0.1">
+            </div>
+            <div class="form-group">
+              <label>Max Feed Rate (mm/min):</label>
+              <input type="number" id="max-feed-rate" value="500" min="1">
+            </div>
+            <div class="form-group">
+              <label>Max Travel (X mm):</label>
+              <input type="number" id="max-travel-x" value="200" min="1">
+            </div>
+            <div class="form-group">
+              <label>Max Travel (Y mm):</label>
+              <input type="number" id="max-travel-y" value="200" min="1">
+            </div>
+            <div class="form-group">
+              <label>Max Travel (Z mm):</label>
+              <input type="number" id="max-travel-z" value="100" min="1">
+            </div>
+            <div class="form-group">
+              <label>Homing Enabled:</label>
+              <select id="homing-enabled">
+                <option value="1">Yes</option>
+                <option value="0">No</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="cancel-settings-btn" class="btn-danger">
+            <i class="fas fa-times"></i>&nbsp; Cancel
+          </button>
+          <button id="save-settings-btn" class="btn-primary">
+            <i class="fas fa-save"></i>&nbsp; Save Settings
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Load JavaScript files -->
+    <script type="module" src="../src/app.js"></script>
+    <script type="module" src="../src/socket.js"></script>
+    <script type="module" src="../src/control-panel.js"></script>
+    <script type="module" src="../src/execution-controls.js"></script>
+    <script type="module" src="../src/file-handler.js"></script>
+    <script type="module" src="../src/visualizer.js"></script>
+  </body>
+</html>
