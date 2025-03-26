@@ -127,6 +127,9 @@
             <div class="tab-button" data-tab="gcode">
               <i class="fas fa-code"></i>&nbsp; G-Code
             </div>
+            <div class="tab-button" data-tab="cad">
+              <i class="fas fa-drafting-compass"></i>&nbsp; CAD/CAM
+            </div>
           </div>
           
           <div class="tab-content active" id="control-tab">
@@ -271,6 +274,123 @@ G0 X0 Y0 ; Return to origin</textarea>
             
             <div class="visualizer-container" id="visualizer-container">
               <div class="visualizer-overlay" id="visualizer-info">Position: X:0.000 Y:0.000 Z:0.000</div>
+            </div>
+          </div>
+
+          <!-- CAD/CAM Tab Content -->
+          <div id="cad-tab" class="tab-content">
+            <div class="cad-container">
+              <div class="cad-toolbar">
+                <div class="toolbar-section">
+                  <h3>Draw</h3>
+                  <button id="select-tool" class="tool-btn active" data-tool="select">
+                    <i class="fas fa-mouse-pointer"></i> Select
+                  </button>
+                  <button id="line-tool" class="tool-btn" data-tool="line">
+                    <i class="fas fa-slash"></i> Line
+                  </button>
+                  <button id="rect-tool" class="tool-btn" data-tool="rectangle">
+                    <i class="fas fa-square"></i> Rectangle
+                  </button>
+                  <button id="circle-tool" class="tool-btn" data-tool="circle">
+                    <i class="fas fa-circle"></i> Circle
+                  </button>
+                  <button id="polyline-tool" class="tool-btn" data-tool="polyline">
+                    <i class="fas fa-draw-polygon"></i> Polyline
+                  </button>
+                </div>
+                
+                <div class="toolbar-section">
+                  <h3>Modify</h3>
+                  <button id="move-tool" class="tool-btn" data-tool="move">
+                    <i class="fas fa-arrows-alt"></i> Move
+                  </button>
+                  <button id="rotate-tool" class="tool-btn" data-tool="rotate">
+                    <i class="fas fa-redo"></i> Rotate
+                  </button>
+                  <button id="scale-tool" class="tool-btn" data-tool="scale">
+                    <i class="fas fa-expand-arrows-alt"></i> Scale
+                  </button>
+                  <button id="trim-tool" class="tool-btn" data-tool="trim">
+                    <i class="fas fa-cut"></i> Trim
+                  </button>
+                </div>
+                
+                <div class="toolbar-section">
+                  <h3>CAM</h3>
+                  <button id="profile-operation" class="cam-btn" data-operation="profile">
+                    <i class="fas fa-external-link-alt"></i> Profile
+                  </button>
+                  <button id="pocket-operation" class="cam-btn" data-operation="pocket">
+                    <i class="fas fa-fill"></i> Pocket
+                  </button>
+                  <button id="drill-operation" class="cam-btn" data-operation="drill">
+                    <i class="fas fa-arrow-down"></i> Drill
+                  </button>
+                </div>
+                
+                <div class="toolbar-section">
+                  <h3>Actions</h3>
+                  <button id="new-drawing" class="action-btn">
+                    <i class="fas fa-file"></i> New
+                  </button>
+                  <button id="save-drawing" class="action-btn">
+                    <i class="fas fa-save"></i> Save
+                  </button>
+                  <button id="load-drawing" class="action-btn">
+                    <i class="fas fa-folder-open"></i> Load
+                  </button>
+                  <button id="export-gcode" class="action-btn">
+                    <i class="fas fa-file-export"></i> Export G-code
+                  </button>
+                </div>
+              </div>
+              
+              <div class="cad-main">
+                <div class="cad-canvas-container">
+                  <canvas id="cad-canvas"></canvas>
+                </div>
+                <div class="cad-properties-panel">
+                  <h3>Properties</h3>
+                  <div id="property-container">
+                    <p>No object selected</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="cam-settings-panel">
+                <div class="tool-settings">
+                  <h4>Tool</h4>
+                  <div class="form-group">
+                    <label for="tool-diameter">Tool Diameter (mm):</label>
+                    <input type="number" id="tool-diameter" value="3.175" min="0.1" step="0.1">
+                  </div>
+                  <div class="form-group">
+                    <label for="tool-feedrate">Feedrate (mm/min):</label>
+                    <input type="number" id="tool-feedrate" value="500" min="1">
+                  </div>
+                  <div class="form-group">
+                    <label for="tool-plungerate">Plunge Rate (mm/min):</label>
+                    <input type="number" id="tool-plungerate" value="200" min="1">
+                  </div>
+                </div>
+                
+                <div class="operation-settings">
+                  <h4>Operation</h4>
+                  <div class="form-group">
+                    <label for="cut-depth">Cut Depth (mm):</label>
+                    <input type="number" id="cut-depth" value="1.0" min="0.1" step="0.1">
+                  </div>
+                  <div class="form-group">
+                    <label for="step-depth">Step Depth (mm):</label>
+                    <input type="number" id="step-depth" value="0.5" min="0.1" step="0.1">
+                  </div>
+                  <div class="form-group">
+                    <label for="step-over">Step Over (%):</label>
+                    <input type="number" id="step-over" value="40" min="1" max="100">
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
