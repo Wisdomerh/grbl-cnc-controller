@@ -493,6 +493,15 @@ class App {
         console.warn('THREE.js is not available or visualizer container not found.');
       }
       
+      // Initialize CAD/CAM if needed
+      if (typeof initCADManager === 'function') {
+        try {
+          initCADManager(this.state);
+          console.log('CAD/CAM module initialized');
+        } catch (error) {
+          console.error('Error initializing CAD/CAM module:', error);
+        }
+      }
       // Initialize event listeners for additional buttons
       this.initEventListeners();
       
@@ -514,6 +523,7 @@ class App {
       });
     });
   }
+  
   
   // Setup button handlers for the new setup wizard
   setupButtonHandlers() {
@@ -590,6 +600,10 @@ class App {
       }
     });
     
+        // If activating CAD tab, trigger canvas resize
+    if (tabId === 'cad' && window.resizeCADCanvas) {
+      setTimeout(window.resizeCADCanvas, 100);
+    }
     // Update tab contents
     this.tabContents.forEach(content => {
       if (content.id === `${tabId}-tab`) {
