@@ -1,0 +1,196 @@
+.cad-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
+  
+  .cad-toolbar {
+    display: flex;
+    padding: 10px;
+    background-color: #f0f0f0;
+    border-bottom: 1px solid #ccc;
+    flex-wrap: wrap;
+  }
+  
+  .toolbar-section {
+    margin-right: 20px;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .toolbar-section h3 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    color: #333;
+  }
+  
+  .tool-btn, .cam-btn, .action-btn {
+    margin: 2px;
+    padding: 5px 10px;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+  }
+  
+  .tool-btn i, .cam-btn i, .action-btn i {
+    margin-right: 5px;
+  }
+  
+  .tool-btn:hover, .cam-btn:hover, .action-btn:hover {
+    background: #e9e9e9;
+  }
+  
+  .tool-btn.active {
+    background: #007bff;
+    color: white;
+    border-color: #0069d9;
+  }
+  
+  .cad-main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+  
+  .cad-canvas-container {
+    flex: 1;
+    background: #fff;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid #ddd;
+  }
+  
+  #cad-canvas {
+    width: 100%;
+    height: 100%;
+  }
+  
+  .cad-properties-panel {
+    width: 250px;
+    background: #f5f5f5;
+    border-left: 1px solid #ddd;
+    padding: 10px;
+    overflow-y: auto;
+  }
+  
+  .cad-properties-panel h3 {
+    margin-top: 0;
+    font-size: 14px;
+    color: #333;
+  }
+  
+  .property {
+    margin-bottom: 10px;
+  }
+  
+  .property label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 12px;
+  }
+  
+  .property input {
+    width: 100%;
+    padding: 5px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+  }
+  
+  .cam-settings-panel {
+    background: #f5f5f5;
+    border-top: 1px solid #ddd;
+    padding: 10px;
+    height: 180px;
+    overflow-y: auto;
+    display: flex;
+  }
+  
+  .cam-settings-panel h3 {
+    margin-top: 0;
+    font-size: 14px;
+    color: #333;
+  }
+  
+  .tool-settings, .operation-settings {
+    flex: 1;
+    margin-right: 20px;
+  }
+  
+  .form-group {
+    margin-bottom: 10px;
+  }
+  
+  .form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 12px;
+  }
+  
+  .form-group input {
+    width: 100%;
+    padding: 5px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 992px) {
+    .cad-main {
+      flex-direction: column;
+    }
+    
+    .cad-properties-panel {
+      width: 100%;
+      height: 200px;
+      border-left: none;
+      border-top: 1px solid #ddd;
+    }
+    
+    .cam-settings-panel {
+      flex-direction: column;
+      height: auto;
+    }
+    
+    .tool-settings, .operation-settings {
+      margin-right: 0;
+      margin-bottom: 20px;
+    }
+  }
+  
+  /* Toolpath visualization styles */
+  .toolpath-profile {
+    stroke: #ff0000;
+    stroke-width: 1.5;
+    stroke-dasharray: 5, 3;
+    fill: none;
+  }
+  
+  .toolpath-pocket {
+    stroke: #0000ff;
+    stroke-width: 1.5;
+    stroke-dasharray: 5, 3;
+    fill: none;
+  }
+  
+  .toolpath-drill {
+    stroke: #00ff00;
+    stroke-width: 1.5;
+    stroke-dasharray: 5, 3;
+    fill: none;
+  }
+  
+  /* Animation for active operations */
+  @keyframes pulse {
+    0% { opacity: 0.7; }
+    50% { opacity: 1; }
+    100% { opacity: 0.7; }
+  }
+  
+  .operation-active {
+    animation: pulse 1.5s infinite;
+  }
