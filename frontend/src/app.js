@@ -5,6 +5,7 @@ import { initControlPanel } from './control-panel.js';
 import { initExecutionControls } from './execution-controls.js';
 import { initVisualizer } from './visualizer.js';
 import { openSetupWizard } from './setup-wizard.js';
+import './cad-cam.js';
 
 // Create a shared state object to be passed to all modules
 const appState = {

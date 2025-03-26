@@ -9,6 +9,7 @@ import concurrent.futures
 import multiprocessing
 from .serial_manager import GRBLSerialManager
 from .gcode_parser import GCodeParser
+from .cad_manager import CADManager
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -80,8 +81,6 @@ class WebSocketServer:
         
         finally:
             self.clients.remove(websocket)
-    
-# This is the corrected process_message method for websocket_server.py
 
     async def process_message(self, websocket, data):
         command = data.get('command')
@@ -195,7 +194,76 @@ class WebSocketServer:
             # Other job control commands
             else:
                 await self.handle_job_control(websocket, data)
+        
+        elif command == 'generate_toolpath':
+            shapes = data.get('shapes', [])
+            operation = data.get('operation')
+            settings = data.get('settings', {})
+            
+            if not shapes or not operation:
+                await websocket.send(json.dumps({
+                    'type': 'error',
+                    'message': 'Missing shapes or operation for toolpath generation'
+                }))
+                return
+            
+            # Initialize CAD manager if needed
+            if not hasattr(self, 'cad_manager'):
+                self.cad_manager = CADManager()
+            
+            try:
+                # Generate toolpath in a separate thread
+                result = await self.loop.run_in_executor(
+                    self.thread_pool,
+                    lambda: self.cad_manager.generate_toolpath(shapes, operation, settings)
+                )
                 
+                await websocket.send(json.dumps({
+                    'type': 'toolpath_result',
+                    'success': True,
+                    'data': result
+                }))
+            except Exception as e:
+                logger.error(f"Error generating toolpath: {str(e)}")
+                await websocket.send(json.dumps({
+                    'type': 'error',
+                    'message': f"Toolpath generation failed: {str(e)}"
+                }))
+        
+        elif command == 'generate_gcode':
+            toolpaths = data.get('toolpaths', [])
+            settings = data.get('settings', {})
+            
+            if not toolpaths:
+                await websocket.send(json.dumps({
+                    'type': 'error',
+                    'message': 'No toolpaths provided for G-code generation'
+                }))
+                return
+            
+            # Initialize CAD manager if needed
+            if not hasattr(self, 'cad_manager'):
+                self.cad_manager = CADManager()
+            
+            try:
+                # Generate G-code in a separate thread
+                gcode = await self.loop.run_in_executor(
+                    self.thread_pool,
+                    lambda: self.cad_manager.generate_gcode(toolpaths, settings)
+                )
+                
+                await websocket.send(json.dumps({
+                    'type': 'gcode_result',
+                    'success': True,
+                    'gcode': gcode
+                }))
+            except Exception as e:
+                logger.error(f"Error generating G-code: {str(e)}")
+                await websocket.send(json.dumps({
+                    'type': 'error',
+                    'message': f"G-code generation failed: {str(e)}"
+                }))       
+        
         # Disconnect command
         elif command == 'disconnect':
             await self.loop.run_in_executor(
@@ -273,8 +341,8 @@ class WebSocketServer:
             await websocket.send(json.dumps({
                 'type': 'gcode_visualization',
                 'data': visualization_data
-                }))
-            
+            }))
+        
         # Home command
         elif command == 'home':
             success = await self.loop.run_in_executor(
@@ -331,8 +399,7 @@ class WebSocketServer:
         asyncio.run_coroutine_threadsafe(self.broadcast(message), self.loop)
     
     # Update the _on_position_update method in websocket_server.py
-# Replace the _on_position_update method in websocket_server.py with this:
-
+    # Replace the _on_position_update method in websocket_server.py with this:
     def _on_position_update(self, positions):
         """Callback for position update events with both coordinate systems"""
         if not self.clients or not self.loop:
@@ -596,62 +663,22 @@ class WebSocketServer:
             
             logger.info(f"Resume command received, job state: {self.job_state}")
             
-            def _stop_job(self, return_to_zero=False):
-                """
-                Stop current job with option to return to zero
-                
-                Args:
-                    return_to_zero (bool): If True, send commands to return to zero after stopping
-                """
-                # Set stop event
-                self.job_stop.set()
-                
-                # Also set pause event to unblock thread
-                self.job_paused.set()
-                
-                # Update state
-                self.job_state = 'idle'
-                
-                # Send soft reset to GRBL
-                self.serial_manager.send_immediate_command('\x18')  # Ctrl+X
-                
-                # Wait a moment for the reset to take effect
-                time.sleep(0.5)
-                
-                # Send unlock command to handle any alarms
-                self.serial_manager.send_command('$X')
-                time.sleep(0.2)
-                
-                # If requested, return to zero (with proper error handling)
-                if return_to_zero:
-                    try:
-                        # First make sure machine is in a good state
-                        time.sleep(0.3)
-                        self.serial_manager.send_command('$X')  # Second unlock just to be sure
-                        time.sleep(0.2)
-                        
-                        # Then set to mm and absolute positioning mode
-                        self.serial_manager.send_command('G21')  # Set units to millimeters
-                        time.sleep(0.1)
-                        self.serial_manager.send_command('G90')  # Set to absolute positioning
-                        time.sleep(0.1)
-                        
-                        # Lift Z axis first for safety
-                        self.serial_manager.send_command('G0 Z5 F500')
-                        time.sleep(1.0)  # Give it more time to raise Z
-                        
-                        # Move to X and Y zero
-                        self.serial_manager.send_command('G0 X0 Y0 F800')
-                        time.sleep(1.0)
-                        
-                        # Finally bring Z to zero if needed
-                        self.serial_manager.send_command('G0 Z0 F500')
-                        
-                        logger.info("Returning to zero position after job stop")
-                    except Exception as e:
-                        logger.error(f"Error returning to zero: {str(e)}")
-                
-                logger.info("G-code job stopped")
+        elif command == 'stop_job':
+            # Stop current job
+            self._stop_job()
+            
+            # Immediately send job status confirmation
+            await websocket.send(json.dumps({
+                'type': 'job_status',
+                'data': {
+                    'state': self.job_state,
+                    'progress': self.job_position,
+                    'total': self.job_total,
+                    'message': "Job stopped"
+                }
+            }))
+            
+            logger.info("Stop command received, job state: idle")
             
         elif command == 'emergency_stop':
             # Emergency stop - send feed hold and flush commands
@@ -667,7 +694,6 @@ class WebSocketServer:
             }))
             
             logger.info("Emergency stop activated")
-
 
     def _start_job(self, gcode_lines):
         """Start a new G-code job with improved state handling"""
@@ -705,7 +731,6 @@ class WebSocketServer:
         logger.info(f"Started G-code job with {self.job_total} commands")
         return True
 
-    # 2. Replace the _execute_job method
     def _execute_job(self):
         """Execute G-code job in a separate thread with improved reliability"""
         try:
@@ -838,7 +863,6 @@ class WebSocketServer:
         else:
             logger.warning(f"Attempted to pause job but state was: {self.job_state}")
 
-
     def _resume_job(self):
         """Resume current job with improved reliability"""
         # Only update state if we're actually paused
@@ -860,7 +884,6 @@ class WebSocketServer:
             # Still set the pause event to make the UI responsive
             self.job_paused.set()
             logger.warning(f"Attempted to resume job but state was: {self.job_state}")
-
 
     def _stop_job(self, return_to_zero=False):
         """
@@ -910,7 +933,6 @@ class WebSocketServer:
                 logger.error(f"Error returning to zero: {str(e)}")
         
         logger.info("G-code job stopped")
-
 
     def _emergency_stop(self):
         """Emergency stop - immediate halt"""
