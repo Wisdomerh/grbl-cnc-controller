@@ -487,10 +487,18 @@ function addPropertyChangeListeners(item) {
   function resizeCanvas() {
     const canvas = document.getElementById('cad-canvas');
     const container = document.querySelector('.cad-canvas-container');
-    if (!canvas || !container) return;
+    if (!canvas || !container) {
+      console.error('Canvas or container not found for resizing');
+      return;
+    }
     
-    const width = container.clientWidth;
-    const height = container.clientHeight;
+    // Force minimum dimensions
+    container.style.minHeight = '400px';
+    
+    const width = Math.max(container.clientWidth, 100);
+    const height = Math.max(container.clientHeight, 100);
+    
+    console.log(`Resizing canvas to ${width}x${height}`);
     
     canvas.width = width;
     canvas.height = height;
@@ -498,8 +506,6 @@ function addPropertyChangeListeners(item) {
     
     // Recreate grid for new size
     createGrid(width, height);
-    
-    console.log(`Canvas resized to ${width}x${height}`);
   }
   
   function createGrid(width, height) {

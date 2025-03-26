@@ -1,196 +1,193 @@
-.cad-container {
+.cad-cam-container {
     display: flex;
     flex-direction: column;
     height: 100%;
+    width: 100%;
+    background: #f5f5f5;
     overflow: hidden;
   }
   
-  .cad-toolbar {
+  .cad-cam-toolbar {
     display: flex;
-    padding: 10px;
-    background-color: #f0f0f0;
-    border-bottom: 1px solid #ccc;
+    padding: 8px;
+    background: #2c3e50;
+    border-bottom: 1px solid #1a252f;
     flex-wrap: wrap;
+    gap: 8px;
   }
   
-  .toolbar-section {
-    margin-right: 20px;
+  .cad-cam-toolbar-section {
     display: flex;
     flex-direction: column;
+    margin-right: 15px;
   }
   
-  .toolbar-section h3 {
-    margin: 0 0 10px 0;
-    font-size: 14px;
-    color: #333;
+  .cad-cam-toolbar-section h3 {
+    margin: 0 0 5px 0;
+    font-size: 12px;
+    color: #ecf0f1;
+    font-weight: 500;
   }
   
-  .tool-btn, .cam-btn, .action-btn {
+  .cad-cam-tool-btn {
     margin: 2px;
-    padding: 5px 10px;
-    background: #fff;
-    border: 1px solid #ccc;
-    border-radius: 3px;
+    padding: 6px 10px;
+    background: #3498db;
+    border: 1px solid #2980b9;
+    border-radius: 4px;
     cursor: pointer;
     font-size: 12px;
+    color: white;
     display: flex;
     align-items: center;
+    transition: all 0.2s;
   }
   
-  .tool-btn i, .cam-btn i, .action-btn i {
-    margin-right: 5px;
+  .cad-cam-tool-btn:hover {
+    background: #2980b9;
   }
   
-  .tool-btn:hover, .cam-btn:hover, .action-btn:hover {
-    background: #e9e9e9;
+  .cad-cam-tool-btn.active {
+    background: #16a085;
+    border-color: #1abc9c;
   }
   
-  .tool-btn.active {
-    background: #007bff;
-    color: white;
-    border-color: #0069d9;
+  .cad-cam-tool-btn i {
+    margin-right: 6px;
   }
   
-  .cad-main {
+  .cad-cam-main-area {
     display: flex;
     flex: 1;
     overflow: hidden;
   }
   
-  .cad-canvas-container {
+  .cad-cam-canvas-container {
     flex: 1;
-    background: #fff;
+    background: #ecf0f1;
     overflow: hidden;
     position: relative;
-    border: 1px solid #ddd;
   }
   
-  #cad-canvas {
+  #cad-cam-canvas {
     width: 100%;
     height: 100%;
+    display: block;
+    background: white;
   }
   
-  .cad-properties-panel {
+  .cad-cam-properties-panel {
     width: 250px;
-    background: #f5f5f5;
-    border-left: 1px solid #ddd;
+    background: #dfe6e9;
+    border-left: 1px solid #bdc3c7;
     padding: 10px;
     overflow-y: auto;
+    font-size: 13px;
   }
   
-  .cad-properties-panel h3 {
-    margin-top: 0;
+  .cad-cam-properties-panel h3 {
+    margin: 0 0 10px 0;
     font-size: 14px;
-    color: #333;
+    color: #2c3e50;
+    border-bottom: 1px solid #bdc3c7;
+    padding-bottom: 5px;
   }
   
-  .property {
-    margin-bottom: 10px;
+  .cad-cam-property-group {
+    margin-bottom: 15px;
   }
   
-  .property label {
+  .cad-cam-property-group label {
     display: block;
     margin-bottom: 5px;
-    font-size: 12px;
+    font-weight: 500;
+    color: #34495e;
   }
   
-  .property input {
+  .cad-cam-property-group input,
+  .cad-cam-property-group select {
     width: 100%;
-    padding: 5px;
-    border: 1px solid #ccc;
+    padding: 6px;
+    border: 1px solid #bdc3c7;
     border-radius: 3px;
+    background: white;
   }
   
-  .cam-settings-panel {
-    background: #f5f5f5;
-    border-top: 1px solid #ddd;
+  .cad-cam-settings-panel {
+    background: #dfe6e9;
+    border-top: 1px solid #bdc3c7;
     padding: 10px;
     height: 180px;
     overflow-y: auto;
     display: flex;
   }
   
-  .cam-settings-panel h3 {
-    margin-top: 0;
-    font-size: 14px;
-    color: #333;
-  }
-  
-  .tool-settings, .operation-settings {
+  .cad-cam-settings-section {
     flex: 1;
-    margin-right: 20px;
+    margin-right: 15px;
   }
   
-  .form-group {
-    margin-bottom: 10px;
+  .cad-cam-settings-section h4 {
+    margin: 0 0 10px 0;
+    font-size: 13px;
+    color: #2c3e50;
+    border-bottom: 1px solid #bdc3c7;
+    padding-bottom: 5px;
   }
   
-  .form-group label {
-    display: block;
-    margin-bottom: 5px;
-    font-size: 12px;
+  /* Toolpath visualization styles */
+  .cad-cam-toolpath-profile {
+    stroke: #e74c3c;
+    stroke-width: 1.5;
+    stroke-dasharray: none;
+    fill: none;
   }
   
-  .form-group input {
-    width: 100%;
-    padding: 5px;
-    border: 1px solid #ccc;
-    border-radius: 3px;
+  .cad-cam-toolpath-pocket {
+    stroke: #3498db;
+    stroke-width: 1.5;
+    stroke-dasharray: 5, 3;
+    fill: none;
+  }
+  
+  .cad-cam-toolpath-drill {
+    stroke: #2ecc71;
+    stroke-width: 1.5;
+    stroke-dasharray: 2, 2;
+    fill: none;
   }
   
   /* Responsive adjustments */
   @media (max-width: 992px) {
-    .cad-main {
+    .cad-cam-main-area {
       flex-direction: column;
     }
     
-    .cad-properties-panel {
+    .cad-cam-properties-panel {
       width: 100%;
       height: 200px;
       border-left: none;
-      border-top: 1px solid #ddd;
+      border-top: 1px solid #bdc3c7;
     }
     
-    .cam-settings-panel {
+    .cad-cam-settings-panel {
       flex-direction: column;
       height: auto;
     }
     
-    .tool-settings, .operation-settings {
+    .cad-cam-settings-section {
       margin-right: 0;
-      margin-bottom: 20px;
+      margin-bottom: 15px;
     }
   }
   
-  /* Toolpath visualization styles */
-  .toolpath-profile {
-    stroke: #ff0000;
-    stroke-width: 1.5;
-    stroke-dasharray: 5, 3;
-    fill: none;
+  /* Grid styles */
+  .cad-cam-grid-line {
+    stroke: #bdc3c7;
+    stroke-width: 0.5;
   }
   
-  .toolpath-pocket {
-    stroke: #0000ff;
-    stroke-width: 1.5;
-    stroke-dasharray: 5, 3;
-    fill: none;
-  }
-  
-  .toolpath-drill {
-    stroke: #00ff00;
-    stroke-width: 1.5;
-    stroke-dasharray: 5, 3;
-    fill: none;
-  }
-  
-  /* Animation for active operations */
-  @keyframes pulse {
-    0% { opacity: 0.7; }
-    50% { opacity: 1; }
-    100% { opacity: 0.7; }
-  }
-  
-  .operation-active {
-    animation: pulse 1.5s infinite;
+  .cad-cam-grid-axis {
+    stroke: #7f8c8d;
+    stroke-width: 1;
   }
