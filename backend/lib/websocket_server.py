@@ -9,7 +9,7 @@ import concurrent.futures
 import multiprocessing
 from .serial_manager import GRBLSerialManager
 from .gcode_parser import GCodeParser
-from .cad_manager import CADManager
+from .gcode_generator import GCodeGenerator
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -33,6 +33,7 @@ class WebSocketServer:
         self.job_thread = None   # Job execution thread
         self.job_paused = threading.Event()  # Event to signal job paused/resumed
         self.job_stop = threading.Event()    # Event to signal job stopped
+        self.gcode_generator = GCodeGenerator()
 
         
         # Create thread pools for parallel processing
@@ -194,76 +195,40 @@ class WebSocketServer:
             # Other job control commands
             else:
                 await self.handle_job_control(websocket, data)
-        
-        elif command == 'generate_toolpath':
-            shapes = data.get('shapes', [])
-            operation = data.get('operation')
-            settings = data.get('settings', {})
-            
-            if not shapes or not operation:
-                await websocket.send(json.dumps({
-                    'type': 'error',
-                    'message': 'Missing shapes or operation for toolpath generation'
-                }))
-                return
-            
-            # Initialize CAD manager if needed
-            if not hasattr(self, 'cad_manager'):
-                self.cad_manager = CADManager()
-            
-            try:
-                # Generate toolpath in a separate thread
-                result = await self.loop.run_in_executor(
-                    self.thread_pool,
-                    lambda: self.cad_manager.generate_toolpath(shapes, operation, settings)
-                )
-                
-                await websocket.send(json.dumps({
-                    'type': 'toolpath_result',
-                    'success': True,
-                    'data': result
-                }))
-            except Exception as e:
-                logger.error(f"Error generating toolpath: {str(e)}")
-                await websocket.send(json.dumps({
-                    'type': 'error',
-                    'message': f"Toolpath generation failed: {str(e)}"
-                }))
-        
+    
         elif command == 'generate_gcode':
-            toolpaths = data.get('toolpaths', [])
-            settings = data.get('settings', {})
-            
+            toolpaths = data.get('toolpaths')
+
             if not toolpaths:
                 await websocket.send(json.dumps({
                     'type': 'error',
-                    'message': 'No toolpaths provided for G-code generation'
+                    'message': 'No toolpaths provided'
                 }))
                 return
-            
-            # Initialize CAD manager if needed
-            if not hasattr(self, 'cad_manager'):
-                self.cad_manager = CADManager()
-            
+
+            settings = data.get('settings')
+
+            # Generate G-code in a separate thread
             try:
-                # Generate G-code in a separate thread
                 gcode = await self.loop.run_in_executor(
                     self.thread_pool,
-                    lambda: self.cad_manager.generate_gcode(toolpaths, settings)
+                    lambda: self.gcode_generator.generate(toolpaths, settings)
                 )
-                
+
                 await websocket.send(json.dumps({
-                    'type': 'gcode_result',
-                    'success': True,
+                    'type': 'gcode_generated',
                     'gcode': gcode
                 }))
+
+                logger.info(f"Generated G-code from {len(toolpaths)} toolpaths")
             except Exception as e:
-                logger.error(f"Error generating G-code: {str(e)}")
+                error_msg = f"Error generating G-code: {str(e)}"
+                logger.error(error_msg)
                 await websocket.send(json.dumps({
                     'type': 'error',
-                    'message': f"G-code generation failed: {str(e)}"
-                }))       
-        
+                    'message': error_msg
+                }))
+
         # Disconnect command
         elif command == 'disconnect':
             await self.loop.run_in_executor(
@@ -370,7 +335,7 @@ class WebSocketServer:
                 'type': 'error',
                 'message': f"Unknown command: {command}"
             }))
-    
+
     # Broadcast message to all clients
     async def broadcast(self, message):
         if not self.clients:

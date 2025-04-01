@@ -1,11 +1,8 @@
-// socket.js
-
-// Add these imports to your socket.js file
 import { handlePortsList } from './setup-wizard.js';
 
 // WebSocket communication module
 let socket = null;
-let appStateRef = null; // Store a reference to appState
+let appStateRef = null;
 
 // Export the socket instance getter
 export function getSocket() {
@@ -204,6 +201,29 @@ function handleSocketMessage(event) {
       }
 
       return; // Skip further processing
+    }
+    
+    // Add this case for G-code generation response
+    if (message.type === 'gcode_generated') {
+      console.log('G-code generated successfully');
+      
+      // Update the G-code editor with the generated code
+      const gcodeEditor = document.getElementById('gcode-editor');
+      if (gcodeEditor) {
+        gcodeEditor.value = message.gcode;
+      }
+      
+      // Show notification
+      appStateRef.addConsoleMessage('system', 'G-code generated successfully');
+      
+      // Switch to the G-code tab
+      const tabButtons = document.querySelectorAll('.tab-button');
+      const gcodeTabButton = Array.from(tabButtons).find(button => button.getAttribute('data-tab') === 'gcode');
+      if (gcodeTabButton) {
+        gcodeTabButton.click();
+      }
+      
+      return;
     }
 
     // Regular message handling

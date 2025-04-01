@@ -5,7 +5,8 @@ import { initControlPanel } from './control-panel.js';
 import { initExecutionControls } from './execution-controls.js';
 import { initVisualizer } from './visualizer.js';
 import { openSetupWizard } from './setup-wizard.js';
-import './cad-cam.js';
+import { initCADModule } from './cad-module.js';
+import './cad-drawer.js';
 
 // Create a shared state object to be passed to all modules
 const appState = {
@@ -494,6 +495,14 @@ class App {
         console.warn('THREE.js is not available or visualizer container not found.');
       }
       
+      // Initialize CAD module
+      try {
+        initCADModule(this.state);
+        console.log('CAD module initialized');
+      } catch (error) {
+        console.error('Error initializing CAD module:', error);
+      }
+      
       // Initialize CAD/CAM if needed
       if (typeof initCADManager === 'function') {
         try {
@@ -503,6 +512,7 @@ class App {
           console.error('Error initializing CAD/CAM module:', error);
         }
       }
+      
       // Initialize event listeners for additional buttons
       this.initEventListeners();
       
@@ -524,7 +534,7 @@ class App {
       });
     });
   }
-  
+
   
   // Setup button handlers for the new setup wizard
   setupButtonHandlers() {
