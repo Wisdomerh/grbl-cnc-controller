@@ -57,9 +57,11 @@
 
 .cad-canvas-container {
   width: 100%;
-  height: calc(100% - 50px);
+  height: 100%;
+  min-height: 400px;
+  background-color: #fff;
+  border: 1px solid #ddd;
   position: relative;
-  overflow: hidden;
 }
 
 .cad-status-bar {
@@ -76,8 +78,104 @@
   font-size: 12px;
 }
 
+.cad-depth-control,
+.cad-operation-type {
+  margin: 5px 0;
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+}
+
+.cad-depth-control label,
+.cad-operation-type label {
+  color: #ecf0f1;
+  margin-right: 8px;
+  min-width: 60px;
+}
+
+.cad-depth-control input {
+  width: 60px;
+  padding: 3px 5px;
+  border-radius: 3px;
+  border: 1px solid #2980b9;
+  background: #fff;
+  color: #333;
+  font-size: 12px;
+}
+
+.cad-operation-type select {
+  padding: 3px 5px;
+  border-radius: 3px;
+  border: 1px solid #2980b9;
+  background: #fff;
+  color: #333;
+  font-size: 12px;
+  width: 100px;
+}
+
+/* Color indicators for different operations */
+.cad-shape.profile {
+  stroke: #e74c3c;
+}
+
+.cad-shape.pocket {
+  stroke: #3498db;
+}
+
+.cad-shape.drill {
+  stroke: #2ecc71;
+}
+
+/* Depth indicators - darker color means deeper cut */
+.depth-indicator {
+  position: absolute;
+  background: rgba(52, 152, 219, 0.2);
+  pointer-events: none;
+  font-size: 10px;
+  color: white;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
 .cad-status-bar .coordinates {
   margin-right: 15px;
+}
+
+.cad-settings-panel {
+  background-color: #f0f2f5;
+  border-top: 1px solid #ddd;
+  padding: 10px;
+  margin-top: auto;
+}
+
+.cad-settings-panel h3 {
+  font-size: 14px;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.cad-settings-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.cad-settings-row label {
+  flex: 0 0 120px;
+  font-size: 13px;
+}
+
+.cad-settings-row input {
+  width: 70px;
+  padding: 4px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+}
+
+.cad-settings-row span {
+  margin-left: 5px;
+  color: #666;
+  font-size: 12px;
 }
 
 /* Responsive adjustments */
