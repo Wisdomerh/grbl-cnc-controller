@@ -96,6 +96,99 @@ class GCodeParser:
         }
         
         return visualization_data
+
+
+    def _parse_arc(self, center_i, center_j, center_k, end_point, is_clockwise, segment_count=24):
+        """
+        Convert a circular arc to a series of line segments.
+        
+        Args:
+            center_i: X offset from current position to arc center
+            center_j: Y offset from current position to arc center
+            center_k: Z offset from current position to arc center (usually 0)
+            end_point: Dictionary containing the end point {x, y, z}
+            is_clockwise: True for G2 (CW), False for G3 (CCW)
+            segment_count: Number of line segments to approximate the arc
+            
+        Returns:
+            None (adds segments to self.segments)
+        """
+        # Start point is the current position
+        start_point = self.position.copy()
+        
+        # Calculate the center point of the arc
+        center = {
+            'x': start_point['x'] + center_i,
+            'y': start_point['y'] + center_j,
+            'z': start_point['z'] + center_k
+        }
+        
+        # Calculate radius based on the distance from start to center
+        radius = math.sqrt(center_i**2 + center_j**2 + center_k**2)
+        
+        # Calculate the start angle (from center to start point)
+        start_angle = math.atan2(start_point['y'] - center['y'], start_point['x'] - center['x'])
+        
+        # Calculate the end angle (from center to end point)
+        end_angle = math.atan2(end_point['y'] - center['y'], end_point['x'] - center['x'])
+        
+        # Adjust end angle for proper arc direction
+        if is_clockwise:
+            while end_angle > start_angle:
+                end_angle -= 2 * math.pi
+            while end_angle <= start_angle - 2 * math.pi:
+                end_angle += 2 * math.pi
+        else:
+            while end_angle < start_angle:
+                end_angle += 2 * math.pi
+            while end_angle >= start_angle + 2 * math.pi:
+                end_angle -= 2 * math.pi
+        
+        # Calculate the total angle to sweep
+        total_angle = abs(end_angle - start_angle)
+        
+        # Calculate angle step
+        angle_step = total_angle / segment_count
+        
+        # Calculate height change per angle unit
+        start_to_end_angle = abs(end_angle - start_angle)
+        
+        # Avoid division by zero
+        if start_to_end_angle == 0:
+            z_step = 0
+        else:
+            z_step = (end_point['z'] - start_point['z']) / start_to_end_angle
+        
+        prev_point = start_point.copy()
+        
+        # Generate segments
+        for i in range(1, segment_count + 1):
+            if is_clockwise:
+                angle = start_angle - (angle_step * i)
+            else:
+                angle = start_angle + (angle_step * i)
+            
+            # Calculate the distance swept so far
+            if is_clockwise:
+                sweep_so_far = start_angle - angle
+            else:
+                sweep_so_far = angle - start_angle
+            
+            # Calculate new point
+            new_point = {
+                'x': center['x'] + radius * math.cos(angle),
+                'y': center['y'] + radius * math.sin(angle),
+                'z': start_point['z'] + (z_step * sweep_so_far)
+            }
+            
+            # For the last segment, ensure we end exactly at the end point
+            if i == segment_count:
+                new_point = end_point.copy()
+            
+            # Add the segment
+            self._add_segment(prev_point, new_point, is_rapid=False)
+            
+            prev_point = new_point.copy()
     
     def _strip_comments(self, line):
         """Remove comments from G-code line"""
@@ -169,9 +262,32 @@ class GCodeParser:
                     # Linear interpolation
                     is_rapid = False
                 elif value == 2 or value == 3:
-                    # Circular interpolation (CW/CCW)
-                    # Note: Circular movements are simplified as linear for visualization
                     is_rapid = False
+
+                    # Check if we have I, J, or K values for the arc center
+                    center_i = 0
+                    center_j = 0
+                    center_k = 0
+
+                    for arc_code, arc_value in commands:
+                        if arc_code == 'I':
+                            center_i = float(arc_value)
+                        elif arc_code == 'J':
+                            center_j = float(arc_value)
+                        elif arc_code == 'K':
+                            center_k = float(arc_value)
+
+                    # Use _parse_arc to generate line segments for the arc
+                    self._parse_arc(
+                        center_i, center_j, center_k,
+                        new_position,
+                        is_clockwise=(value == 2),  # G2 is clockwise, G3 is counterclockwise
+                        segment_count=24  # Use 24 segments for a smooth arc
+                    )
+
+                    # Since we've handled this movement with _parse_arc,
+                    # we should skip the standard movement handling
+                    has_movement = False
                 elif value == 17:
                     # XY plane selection
                     self.plane = GCodePlane.XY

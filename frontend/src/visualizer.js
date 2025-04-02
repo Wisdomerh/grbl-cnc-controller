@@ -187,6 +187,94 @@ function updateToolPosition(position) {
   }
 }
 
+/**
+ * Converts a circular arc to a series of line segments.
+ * 
+ * @param {Object} start - Start point {x, y, z}
+ * @param {Object} end - End point {x, y, z}
+ * @param {number} i - X offset from start point to center
+ * @param {number} j - Y offset from start point to center
+ * @param {number} k - Z offset from start point to center (rarely used)
+ * @param {boolean} clockwise - Whether the arc is clockwise (G2) or counterclockwise (G3)
+ * @param {number} segments - Number of line segments to approximate the arc (default: 32)
+ * @returns {Array} Array of line segments { start: {x,y,z}, end: {x,y,z} }
+ */
+function arcToSegments(start, end, i, j, k = 0, clockwise = true, segments = 32) {
+  // Calculate the center of the arc
+  const center = {
+    x: start.x + i,
+    y: start.y + j,
+    z: start.z + k
+  };
+  
+  // Calculate radius based on the distance from start to center
+  const radius = Math.sqrt(i*i + j*j + k*k);
+  
+  // Calculate the start angle (from center to start point)
+  const startAngle = Math.atan2(start.y - center.y, start.x - center.x);
+  
+  // Calculate the end angle (from center to end point)
+  let endAngle = Math.atan2(end.y - center.y, end.x - center.x);
+  
+  // Adjust end angle for proper arc direction
+  if (clockwise) {
+    while (endAngle > startAngle) endAngle -= 2 * Math.PI;
+    while (endAngle <= startAngle - 2 * Math.PI) endAngle += 2 * Math.PI;
+  } else {
+    while (endAngle < startAngle) endAngle += 2 * Math.PI;
+    while (endAngle >= startAngle + 2 * Math.PI) endAngle -= 2 * Math.PI;
+  }
+  
+  // Calculate the total angle to sweep
+  let totalAngle = Math.abs(endAngle - startAngle);
+  
+  // Create segment points
+  const arcSegments = [];
+  const angleStep = totalAngle / segments;
+  
+  // Calculate height change per angle unit
+  const startToEndAngle = clockwise ? (startAngle - endAngle) : (endAngle - startAngle);
+  const zStep = (end.z - start.z) / startToEndAngle;
+  
+  let prevPoint = { ...start };
+  
+  // Generate segments
+  for (let i = 1; i <= segments; i++) {
+    const angle = clockwise 
+      ? startAngle - (angleStep * i)
+      : startAngle + (angleStep * i);
+    
+    // Calculate the distance swept so far
+    const sweepSoFar = clockwise 
+      ? (startAngle - angle)
+      : (angle - startAngle);
+    
+    // Calculate new point
+    const newPoint = {
+      x: center.x + radius * Math.cos(angle),
+      y: center.y + radius * Math.sin(angle),
+      z: start.z + (zStep * sweepSoFar)
+    };
+    
+    // For the last segment, ensure we end exactly at the end point
+    if (i === segments) {
+      newPoint.x = end.x;
+      newPoint.y = end.y;
+      newPoint.z = end.z;
+    }
+    
+    // Add segment
+    arcSegments.push({
+      start: { ...prevPoint },
+      end: { ...newPoint }
+    });
+    
+    prevPoint = { ...newPoint };
+  }
+  
+  return arcSegments;
+}
+
 // Clear the visualization
 export function clearVisualization() {
   console.log('Clearing visualization');
