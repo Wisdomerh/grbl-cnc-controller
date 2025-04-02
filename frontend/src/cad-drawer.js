@@ -434,6 +434,10 @@ export class CADDrawer {
         console.log(`Added ${element.type} to elements array, count: ${this.elements.length}`);
       }
     }
+    if (isDifferentPoints && this.currentTool === 'circle' && element) {
+      // Use setTimeout to ensure the element is fully added to the array first
+      setTimeout(() => this.previewCircles(), 100);
+    }
     
     // Clean up
     this.isDrawing = false;
@@ -451,6 +455,8 @@ export class CADDrawer {
       statusMessage.textContent = `Ready - ${this.elements.length} element(s)`;
     }
   }
+
+  
   
   handleSelectTool(event) {
     const rect = this.container.getBoundingClientRect();
@@ -495,6 +501,53 @@ export class CADDrawer {
       if (statusMessage) {
         statusMessage.textContent = 'No element selected';
       }
+    }
+  }
+
+  previewCircles() {
+    // Extract all circles from the elements array
+    const circleElements = this.elements.filter(elem => elem.type === 'circle');
+    
+    if (circleElements.length === 0) {
+      console.log('No circles to preview');
+      return;
+    }
+    
+    // Convert to the format expected by the visualizer
+    const circles = circleElements.map(elem => ({
+      center: {
+        x: elem.center.x,
+        y: elem.center.y,
+        z: elem.depth || 0  // Use the cut depth as Z coordinate
+      },
+      radius: elem.radius
+    }));
+    
+    // Prepare visualization data
+    const visualizationData = {
+      segments: [], // Empty for now
+      rapids: [],   // Empty for now
+      circles: circles,
+      bounds: {
+        min: { 
+          x: Math.min(...circles.map(c => c.center.x - c.radius)),
+          y: Math.min(...circles.map(c => c.center.y - c.radius)),
+          z: Math.min(...circles.map(c => c.center.z))
+        },
+        max: {
+          x: Math.max(...circles.map(c => c.center.x + c.radius)),
+          y: Math.max(...circles.map(c => c.center.y + c.radius)),
+          z: Math.max(...circles.map(c => c.center.z))
+        }
+      }
+    };
+    
+    // Call the visualization handler
+    if (typeof window.handleGcodeVisualization === 'function') {
+      window.handleGcodeVisualization(visualizationData);
+      console.log('Circle preview sent to visualizer:', circles);
+    } else {
+      console.error('Visualizer not available');
     }
   }
   

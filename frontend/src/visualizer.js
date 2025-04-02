@@ -275,6 +275,21 @@ function arcToSegments(start, end, i, j, k = 0, clockwise = true, segments = 32)
   return arcSegments;
 }
 
+function createCircleGeometry(center, radius, segments = 32) {
+  // Create points for a circle
+  const points = [];
+  
+  for (let i = 0; i <= segments; i++) {
+    const angle = (i / segments) * Math.PI * 2;
+    const x = center.x + radius * Math.cos(angle);
+    const y = center.y + radius * Math.sin(angle);
+    
+    // Note: Y and Z are swapped in the visualizer to match CNC coordinates
+    points.push(new THREE.Vector3(x, center.z, y));
+  }
+  
+  return points;
+}
 // Clear the visualization
 export function clearVisualization() {
   console.log('Clearing visualization');
@@ -411,6 +426,34 @@ function createVisualization(data) {
     console.warn('No rapid movements found in data');
   }
   
+  if (data.circles && data.circles.length > 0) {
+    console.log('Creating', data.circles.length, 'circles');
+    
+    const circleMaterial = new THREE.LineBasicMaterial({ 
+      color: 0x2ecc71,  // Green color for circles
+      linewidth: 2
+    });
+    
+    data.circles.forEach((circle) => {
+      if (!circle.center || typeof circle.radius !== 'number') {
+        console.warn('Invalid circle data:', circle);
+        return;
+      }
+      
+      const circlePoints = createCircleGeometry(
+        circle.center,
+        circle.radius, 
+        32  // segments for a smooth circle
+      );
+      
+      const circleGeometry = new THREE.BufferGeometry().setFromPoints(circlePoints);
+      const circleLine = new THREE.Line(circleGeometry, circleMaterial);
+      toolpathGroup.add(circleLine);
+      
+      console.log('Added circle at', circle.center, 'with radius', circle.radius);
+    });
+  }
+
   // Adjust camera to view the entire toolpath
   if (data.bounds) {
     console.log('Adjusting camera to fit bounds:', data.bounds);
@@ -453,6 +496,7 @@ function createVisualization(data) {
     }
   }
 }
+
 
 // Clean up resources
 export function cleanupVisualizer() {
