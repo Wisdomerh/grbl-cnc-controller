@@ -12,120 +12,148 @@ export function initVisualizer(appState) {
     return;
   }
   
-  const container = document.getElementById('visualizer-container');
-  if (!container) {
-    console.error('Visualizer container not found');
-    return;
-  }
-  
-  console.log('Initializing visualizer with container dimensions:', container.clientWidth, 'x', container.clientHeight);
-  
-  // Check if container has valid dimensions
-  if (container.clientWidth <= 0 || container.clientHeight <= 0) {
-    console.error('Visualizer container has invalid dimensions');
-    appState.addConsoleMessage('error', 'Visualizer container has invalid dimensions. Check CSS.');
-    // Force some minimums to attempt to render anyway
-    container.style.width = '400px';
-    container.style.height = '300px';
-  }
-  
-  const width = Math.max(container.clientWidth, 400);
-  const height = Math.max(container.clientHeight, 300);
-  
-  // Create scene
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x2a2a2a); // Darker background to see more clearly
-  
-  // Create camera with a reasonable field of view
-  camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 2000);
-  camera.position.set(100, 100, 100);
-  camera.lookAt(0, 0, 0);
-  
-  // Create renderer
-  renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(width, height);
-  renderer.setPixelRatio(window.devicePixelRatio);
-  container.appendChild(renderer.domElement);
-  
-  console.log('Renderer created with size:', width, 'x', height);
-  
-  // Add orbit controls
-  if (typeof THREE.OrbitControls !== 'undefined') {
-    controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.25;
-    console.log('OrbitControls initialized');
-  } else {
-    console.warn('THREE.OrbitControls not found, controls will not be available');
-  }
-  
-  // Create lighting
-  const ambientLight = new THREE.AmbientLight(0x606060); // Brighter ambient light
-  scene.add(ambientLight);
-  
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0); // Stronger lighting
-  directionalLight.position.set(1, 1, 1);
-  scene.add(directionalLight);
-  
-  // Add grid helper - make it more visible
-  gridHelper = new THREE.GridHelper(200, 20, 0x888888, 0x444444);
-  scene.add(gridHelper);
-  
-  // Add axes helper - make it larger
-  const axesHelper = new THREE.AxesHelper(100);
-  scene.add(axesHelper);
-  
-  // Create groups for toolpaths
-  toolpathGroup = new THREE.Group();
-  rapidGroup = new THREE.Group();
-  scene.add(toolpathGroup);
-  scene.add(rapidGroup);
-  
-  // Create tool representation - make it more visible
-  const toolGeometry = new THREE.CylinderGeometry(3, 0, 15, 12);
-  toolGeometry.rotateX(Math.PI);
-  const toolMaterial = new THREE.MeshPhongMaterial({ color: 0xffff00, emissive: 0x444400 });
-  toolMesh = new THREE.Mesh(toolGeometry, toolMaterial);
-  toolMesh.position.set(0, 0, 0);
-  scene.add(toolMesh);
-  
-  // Add a cube at origin as a visual reference
-  const cubeGeometry = new THREE.BoxGeometry(10, 10, 10);
-  const cubeMaterial = new THREE.MeshPhongMaterial({ color: 0xff8800 });
-  const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-  cube.position.set(0, 0, 0);
-  scene.add(cube);
-  
-  console.log('3D scene set up complete, starting render loop');
-  
-  // Start render loop
-  animate();
-  
-  // Handle window resize
-  window.addEventListener('resize', () => {
-    const width = container.clientWidth;
-    const height = container.clientHeight;
-    
-    if (width > 0 && height > 0) {
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
-      renderer.setSize(width, height);
-      console.log('Resized visualizer to:', width, 'x', height);
+  // Wait for the container to be properly rendered
+  setTimeout(() => {
+    const container = document.getElementById('visualizer-container');
+    if (!container) {
+      console.error('Visualizer container not found');
+      return;
     }
-  });
+    
+    // Force the container to have reasonable dimensions
+    container.style.width = '100%';
+    container.style.height = '500px';
+    container.style.minHeight = '400px';
+    
+    // Get the dimensions after forcing them
+    const width = container.clientWidth || 600;
+    const height = container.clientHeight || 400;
+    
+    console.log('Initializing visualizer with dimensions:', width, 'x', height);
+    
+    // Create scene
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x2a2a2a); // Darker background to see more clearly
+    
+    // Create camera with a reasonable field of view
+    camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 2000);
+    camera.position.set(100, 100, 100);
+    camera.lookAt(0, 0, 0);
+    
+    // Create renderer
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    
+    // Clear any previous content
+    while (container.firstChild) {
+      container.removeChild(container.firstChild);
+    }
+    
+    container.appendChild(renderer.domElement);
+    
+    // Make the canvas fill the container
+    renderer.domElement.style.width = '100%';
+    renderer.domElement.style.height = '100%';
+    
+    console.log('Renderer created with size:', width, 'x', height);
+    
+    // Add orbit controls
+    if (typeof THREE.OrbitControls !== 'undefined') {
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.25;
+      console.log('OrbitControls initialized');
+    } else {
+      console.warn('THREE.OrbitControls not found, controls will not be available');
+    }
+    
+    // Create lighting
+    const ambientLight = new THREE.AmbientLight(0x606060); // Brighter ambient light
+    scene.add(ambientLight);
+    
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0); // Stronger lighting
+    directionalLight.position.set(1, 1, 1);
+    scene.add(directionalLight);
+    
+    // Add grid helper - make it more visible
+    gridHelper = new THREE.GridHelper(200, 20, 0x888888, 0x444444);
+    scene.add(gridHelper);
+    
+    // Add axes helper - make it larger
+    const axesHelper = new THREE.AxesHelper(100);
+    scene.add(axesHelper);
+    
+    // Create groups for toolpaths
+    toolpathGroup = new THREE.Group();
+    rapidGroup = new THREE.Group();
+    scene.add(toolpathGroup);
+    scene.add(rapidGroup);
+    
+    // Create tool representation - make it more visible
+    const toolGeometry = new THREE.CylinderGeometry(3, 0, 15, 12);
+    toolGeometry.rotateX(Math.PI);
+    const toolMaterial = new THREE.MeshPhongMaterial({ color: 0xffff00, emissive: 0x444400 });
+    toolMesh = new THREE.Mesh(toolGeometry, toolMaterial);
+    toolMesh.position.set(0, 0, 0);
+    scene.add(toolMesh);
+    
+    // Add a cube at origin as a visual reference
+    const cubeGeometry = new THREE.BoxGeometry(10, 10, 10);
+    const cubeMaterial = new THREE.MeshPhongMaterial({ color: 0xff8800 });
+    const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+    cube.position.set(0, 0, 0);
+    scene.add(cube);
+    
+    console.log('3D scene set up complete, starting render loop');
+    
+    // Start render loop
+    animate();
+    
+    // Handle window resize
+    window.addEventListener('resize', handleResize);
+    
+    // Add event listeners for tab changes to ensure visualizer is resized properly
+    const tabButtons = document.querySelectorAll('.tab-button');
+    tabButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        // If the G-code tab is selected, resize the visualizer
+        if (button.getAttribute('data-tab') === 'gcode') {
+          setTimeout(handleResize, 100);
+        }
+      });
+    });
+    
+    // Expose needed methods globally
+    window.updateToolPosition = updateToolPosition;
+    window.handleGcodeVisualization = handleGcodeVisualization;
+    window.clearVisualization = clearVisualization;
+    window.handleResize = handleResize;
+    
+    // Force a test render immediately to check for WebGL issues
+    renderer.render(scene, camera);
+    
+    console.log('Visualizer initialized successfully');
+    
+    // Force a test visualization with a simple cube for debugging
+    createDebugVisualization();
+  }, 300);
+}
+
+// Resize handler
+function handleResize() {
+  const container = document.getElementById('visualizer-container');
+  if (!container || !renderer || !camera) return;
   
-  // Expose needed methods globally
-  window.updateToolPosition = updateToolPosition;
-  window.handleGcodeVisualization = handleGcodeVisualization;
-  window.clearVisualization = clearVisualization;
+  const width = container.clientWidth;
+  const height = container.clientHeight;
   
-  // Force a test render immediately to check for WebGL issues
-  renderer.render(scene, camera);
-  
-  console.log('Visualizer initialized successfully');
-  
-  // Force a test visualization with a simple cube for debugging
-  createDebugVisualization();
+  if (width > 0 && height > 0) {
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+    renderer.setSize(width, height);
+    console.log('Resized visualizer to:', width, 'x', height);
+  }
 }
 
 // Create a simple test visualization to validate the renderer
@@ -290,6 +318,7 @@ function createCircleGeometry(center, radius, segments = 32) {
   
   return points;
 }
+
 // Clear the visualization
 export function clearVisualization() {
   console.log('Clearing visualization');
@@ -496,7 +525,6 @@ function createVisualization(data) {
     }
   }
 }
-
 
 // Clean up resources
 export function cleanupVisualizer() {

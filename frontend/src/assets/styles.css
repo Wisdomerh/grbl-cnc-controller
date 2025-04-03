@@ -1899,3 +1899,11 @@ body.loading {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+.visualizer-container {
+  width: 100% !important;
+  height: 550px !important; 
+  min-height: 450px;    
+  flex-grow: 1;
+  margin: 15px 0;
+}
