@@ -1,4 +1,3 @@
-// main.js
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
 
@@ -9,6 +8,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    icon: path.join(__dirname, 'frontend/src/assets/icon-cnc.ico'),
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
