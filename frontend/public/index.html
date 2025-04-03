@@ -432,6 +432,177 @@ G0 X0 Y0 ; Return to origin</textarea>
       </div>
     </div>
 
+    <div class="modal-overlay" id="get-started-modal-overlay">
+      <div class="get-started-modal">
+        <div class="modal-header">
+          <h2><i class="fas fa-rocket"></i>&nbsp; Welcome to Smart CNC Control</h2>
+          <button class="modal-close" id="close-get-started-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="get-started-tabs">
+            <div class="get-started-tab-buttons">
+              <button class="get-started-tab-btn active" data-tab="welcome">Welcome</button>
+              <button class="get-started-tab-btn" data-tab="connection">Connection</button>
+              <button class="get-started-tab-btn" data-tab="controls">Controls</button>
+              <button class="get-started-tab-btn" data-tab="gcode">G-Code</button>
+              <button class="get-started-tab-btn" data-tab="cad">CAD/CAM</button>
+            </div>
+            
+            <div class="get-started-tab-content">
+              <!-- Welcome Tab -->
+              <div class="get-started-tab active" id="welcome-tab">
+                <div class="get-started-content">
+                  <img src="../src/assets/icon-cnc.ico" alt="CNC Control Logo" class="get-started-logo">
+                  <h3>Welcome to Smart CNC Control</h3>
+                  <p>This guide will help you get started with your CNC machine control software. Learn how to connect to your machine, control it, and create G-code programs.</p>
+                  <p>Use the tabs above to navigate through this guide, or click "Next" to proceed step by step.</p>
+                  
+                  <div class="tip-box">
+                    <i class="fas fa-lightbulb"></i>
+                    <div>
+                      <strong>TIP:</strong> You can access this guide anytime by clicking "Help" in the main menu.
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Connection Tab -->
+              <div class="get-started-tab" id="connection-tab">
+                <div class="get-started-content">
+                  <h3>Connecting to Your Machine</h3>
+                  <div class="get-started-row">
+                    <div class="get-started-col">
+                      <ol>
+                        <li>Connect your CNC machine via USB</li>
+                        <li>In the sidebar, select your machine's port from the dropdown</li>
+                        <li>Select the appropriate baud rate (usually 115200)</li>
+                        <li>Click "Connect" to establish connection</li>
+                        <li>If connection is successful, you'll see "Connected" status</li>
+                      </ol>
+                      
+                      <div class="tip-box">
+                        <i class="fas fa-lightbulb"></i>
+                        <div>
+                          <strong>TIP:</strong> If your port doesn't appear, click "Refresh" to scan for new devices.
+                        </div>
+                      </div>
+                    </div>
+                    <div class="get-started-col">
+                      <img src="../src/assets/help/connection-panel.png" alt="Connection Panel" class="help-image">
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Controls Tab -->
+              <div class="get-started-tab" id="controls-tab">
+                <div class="get-started-content">
+                  <h3>Machine Control</h3>
+                  <div class="get-started-row">
+                    <div class="get-started-col">
+                      <p>The Machine Control tab allows you to:</p>
+                      <ul>
+                        <li>Move the machine using jog controls</li>
+                        <li>Set step size for precise movements</li>
+                        <li>Adjust feed rate for moving speed</li>
+                        <li>Zero individual axes or all axes</li>
+                        <li>Unlock the machine after alarms</li>
+                      </ul>
+                      
+                      <div class="tip-box">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <div>
+                          <strong>SAFETY:</strong> Always keep the Emergency Stop button accessible for quick action if needed.
+                        </div>
+                      </div>
+                    </div>
+                    <div class="get-started-col">
+                      <img src="../src/assets/help/control-panel.png" alt="Control Panel" class="help-image">
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- G-Code Tab -->
+              <div class="get-started-tab" id="gcode-tab">
+                <div class="get-started-content">
+                  <h3>Working with G-Code</h3>
+                  <div class="get-started-row">
+                    <div class="get-started-col">
+                      <p>In the G-Code tab, you can:</p>
+                      <ul>
+                        <li>Load existing G-code files (.gcode, .nc, etc.)</li>
+                        <li>Edit G-code directly in the editor</li>
+                        <li>Visualize the toolpath in 3D before running</li>
+                        <li>Run, pause, and stop G-code execution</li>
+                      </ul>
+                      
+                      <div class="tip-box">
+                        <i class="fas fa-lightbulb"></i>
+                        <div>
+                          <strong>TIP:</strong> Always visualize your G-code before running it to verify the expected toolpath.
+                        </div>
+                      </div>
+                    </div>
+                    <div class="get-started-col">
+                      <img src="../src/assets/help/gcode-tab.png" alt="G-Code Tab" class="help-image">
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- CAD/CAM Tab -->
+              <div class="get-started-tab" id="cad-tab">
+                <div class="get-started-content">
+                  <h3>CAD/CAM Features</h3>
+                  <div class="get-started-row">
+                    <div class="get-started-col">
+                      <p>The CAD/CAM tab provides basic design capabilities:</p>
+                      <ul>
+                        <li>Draw lines, rectangles, and circles</li>
+                        <li>Set cutting depth and operation type</li>
+                        <li>Configure tool parameters</li>
+                        <li>Generate G-code from your designs</li>
+                      </ul>
+                      
+                      <div class="tip-box">
+                        <i class="fas fa-lightbulb"></i>
+                        <div>
+                          <strong>TIP:</strong> For complex designs, consider using dedicated CAD/CAM software and importing the resulting G-code.
+                        </div>
+                      </div>
+                    </div>
+                    <div class="get-started-col">
+                      <img src="../src/assets/help/cad-tab.png" alt="CAD Tab" class="help-image">
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <div class="get-started-footer-left">
+            <label class="checkbox-container">
+              <input type="checkbox" id="dont-show-again">
+              <span class="checkmark"></span>
+              Don't show this guide on startup
+            </label>
+          </div>
+          <div class="get-started-footer-right">
+            <button id="get-started-back-btn" class="btn-secondary" disabled>
+              &lt; Back
+            </button>
+            <button id="get-started-next-btn" class="btn-primary">
+              Next &gt;
+            </button>
+            <button id="get-started-finish-btn" class="btn-success" style="display: none;">
+              Get Started
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
     <!-- Load JavaScript files -->
     <script type="module" src="../src/app.js"></script>
     <script type="module" src="../src/socket.js"></script>

@@ -488,6 +488,7 @@ class App {
       initControlPanel(this.state);
       initExecutionControls(this.state);
       
+      
       // Initialize visualizer if THREE.js is available
       if (this.state.elements.visualizerContainer && typeof THREE !== 'undefined') {
         initVisualizer(this.state);
@@ -512,7 +513,7 @@ class App {
           console.error('Error initializing CAD/CAM module:', error);
         }
       }
-      
+      initGetStartedGuide();
       // Initialize event listeners for additional buttons
       this.initEventListeners();
       
@@ -810,6 +811,122 @@ document.addEventListener('DOMContentLoaded', () => {
       console.warn('Failed to preload setup wizard HTML from any path');
     };
     
+    const getStartedModal = document.getElementById('get-started-modal-overlay');
+if (getStartedModal) {
+  // Check if we should show it
+  const dontShowAgain = localStorage.getItem('dontShowGetStartedGuide');
+  if (dontShowAgain !== 'true') {
+    console.log('Showing Get Started modal...');
+    
+    // Set up event listeners
+    const closeBtn = document.getElementById('close-get-started-modal');
+    const dontShowAgainCheckbox = document.getElementById('dont-show-again');
+    const nextBtn = document.getElementById('get-started-next-btn');
+    const backBtn = document.getElementById('get-started-back-btn');
+    const finishBtn = document.getElementById('get-started-finish-btn');
+    
+    // Close button
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        getStartedModal.classList.remove('active');
+      });
+    }
+    
+    // Don't show again checkbox
+    if (dontShowAgainCheckbox) {
+      dontShowAgainCheckbox.addEventListener('change', () => {
+        localStorage.setItem('dontShowGetStartedGuide', dontShowAgainCheckbox.checked);
+      });
+    }
+    
+    // Tab handling
+    const tabButtons = document.querySelectorAll('.get-started-tab-btn');
+    const tabs = document.querySelectorAll('.get-started-tab');
+    let currentTabIndex = 0;
+    
+    function updateTabDisplay() {
+      // Update tab buttons
+      tabButtons.forEach((button, index) => {
+        if (index === currentTabIndex) {
+          button.classList.add('active');
+        } else {
+          button.classList.remove('active');
+        }
+      });
+      
+      // Update tab content
+      tabs.forEach((tab, index) => {
+        if (index === currentTabIndex) {
+          tab.classList.add('active');
+        } else {
+          tab.classList.remove('active');
+        }
+      });
+      
+      // Update navigation buttons
+      if (backBtn) {
+        backBtn.disabled = currentTabIndex === 0;
+      }
+      
+      if (nextBtn && finishBtn) {
+        if (currentTabIndex === tabs.length - 1) {
+          nextBtn.style.display = 'none';
+          finishBtn.style.display = 'block';
+        } else {
+          nextBtn.style.display = 'block';
+          finishBtn.style.display = 'none';
+        }
+      }
+    }
+    
+    // Set up tab button clicks
+    tabButtons.forEach((button, index) => {
+      button.addEventListener('click', () => {
+        currentTabIndex = index;
+        updateTabDisplay();
+      });
+    });
+    
+    // Next button
+    if (nextBtn) {
+      nextBtn.addEventListener('click', () => {
+        if (currentTabIndex < tabs.length - 1) {
+          currentTabIndex++;
+          updateTabDisplay();
+        }
+      });
+    }
+    
+    // Back button
+    if (backBtn) {
+      backBtn.addEventListener('click', () => {
+        if (currentTabIndex > 0) {
+          currentTabIndex--;
+          updateTabDisplay();
+        }
+      });
+    }
+    
+    // Finish button
+    if (finishBtn) {
+      finishBtn.addEventListener('click', () => {
+        getStartedModal.classList.remove('active');
+        
+        if (dontShowAgainCheckbox && dontShowAgainCheckbox.checked) {
+          localStorage.setItem('dontShowGetStartedGuide', 'true');
+        }
+      });
+    }
+    
+    // Initialize tab display
+    updateTabDisplay();
+    
+    // Show the modal after a short delay
+    setTimeout(() => {
+      getStartedModal.classList.add('active');
+    }, 1000);
+  }
+}
     attemptPreload(preloadPaths);
       
   } catch (error) {

@@ -333,9 +333,9 @@ export class CADDrawer {
       this.startPoint.y !== snappedPoint.y;
     
     // Finalize drawing based on current tool
+    let element = null; // Define element variable at the top level
+    
     if (isDifferentPoints) {
-      let element = null;
-      
       if (this.currentTool === 'line') {
         element = {
           type: 'line',
@@ -429,11 +429,15 @@ export class CADDrawer {
           console.log('Circle finalized:', element);
         }
       }
+      
+      // Only add element to elements array if it was created
       if (element) {
         this.elements.push(element);
         console.log(`Added ${element.type} to elements array, count: ${this.elements.length}`);
       }
     }
+    
+    // Only preview circles if a circle element was created
     if (isDifferentPoints && this.currentTool === 'circle' && element) {
       // Use setTimeout to ensure the element is fully added to the array first
       setTimeout(() => this.previewCircles(), 100);
