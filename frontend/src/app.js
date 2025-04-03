@@ -1,4 +1,3 @@
-// Import modules
 import { initSocket, getSocket } from './socket.js';
 import { initFileUpload } from './file-handler.js';
 import { initControlPanel } from './control-panel.js';
@@ -7,6 +6,7 @@ import { initVisualizer } from './visualizer.js';
 import { openSetupWizard } from './setup-wizard.js';
 import { initCADModule } from './cad-module.js';
 import './cad-drawer.js';
+import { initGetStartedGuide, createPlaceholderImages } from './get-started.js';
 
 // Create a shared state object to be passed to all modules
 const appState = {
