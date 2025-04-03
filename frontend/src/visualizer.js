@@ -92,7 +92,7 @@ export function initVisualizer(appState) {
     
     // Create tool representation - make it more visible
     const toolGeometry = new THREE.CylinderGeometry(3, 0, 15, 12);
-    toolGeometry.rotateX(Math.PI);
+    toolGeometry.rotateX(0);
     const toolMaterial = new THREE.MeshPhongMaterial({ color: 0xffff00, emissive: 0x444400 });
     toolMesh = new THREE.Mesh(toolGeometry, toolMaterial);
     toolMesh.position.set(0, 0, 0);
@@ -201,9 +201,9 @@ function updateToolPosition(position) {
   
   console.log('Updating tool position:', position);
   
-  // Update tool position (note: Y and Z are swapped to match usual CNC coordinates)
+  // Update tool position
   toolMesh.position.set(
-    parseFloat(position.x), 
+    -parseFloat(position.x), 
     parseFloat(position.z), 
     parseFloat(position.y)
   );
@@ -379,8 +379,8 @@ function createVisualization(data) {
       
       // Create points (note Y and Z are swapped to match usual CNC coordinates)
       const points = [
-        new THREE.Vector3(segment.start.x, segment.start.z, segment.start.y),
-        new THREE.Vector3(segment.end.x, segment.end.z, segment.end.y)
+        new THREE.Vector3(-segment.start.x, segment.start.z, segment.start.y),
+        new THREE.Vector3(-segment.end.x, segment.end.z, segment.end.y)
       ];
       
       geometry.setFromPoints(points);
@@ -411,10 +411,10 @@ function createVisualization(data) {
         
         const geometry = new THREE.BufferGeometry();
         
-        // Create points (note Y and Z are swapped to match usual CNC coordinates)
+        // Create points 
         const points = [
-          new THREE.Vector3(segment.start.x, segment.start.z, segment.start.y),
-          new THREE.Vector3(segment.end.x, segment.end.z, segment.end.y)
+          new THREE.Vector3(-segment.start.x, segment.start.z, segment.start.y),
+          new THREE.Vector3(-segment.end.x, segment.end.z, segment.end.y)
         ];
         
         geometry.setFromPoints(points);
