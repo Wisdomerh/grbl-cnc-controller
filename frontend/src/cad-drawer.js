@@ -27,10 +27,15 @@ export class CADDrawer {
     
     // Set up grid
     this.drawGrid();
+
+    this.currentText = '';
+    this.textSize = 20; 
+    this.textFont = 'Arial';
     
     console.log('CAD Drawer initialized with 2.5D support');
   }
-  
+
+
   initTwoJS() {
     console.log('Initializing Two.js', Two, this.container);
     if (!this.container) {
@@ -96,26 +101,27 @@ export class CADDrawer {
         }
       });
     });
+    
     const toolDiameterInput = document.getElementById('cad-tool-diameter');
-      if (toolDiameterInput) {
-        toolDiameterInput.addEventListener('change', () => {
-          this.toolDiameter = parseFloat(toolDiameterInput.value);
-        });
-      }
-
-      const stepDownInput = document.getElementById('cad-step-down');
-      if (stepDownInput) {
-        stepDownInput.addEventListener('change', () => {
-          this.stepDown = parseFloat(stepDownInput.value);
-        });
-      }
-
-      const feedRateInput = document.getElementById('cad-feed-rate');
-      if (feedRateInput) {
-        feedRateInput.addEventListener('change', () => {
-          this.feedRate = parseFloat(feedRateInput.value);
-        });
-      }
+    if (toolDiameterInput) {
+      toolDiameterInput.addEventListener('change', () => {
+        this.toolDiameter = parseFloat(toolDiameterInput.value);
+      });
+    }
+  
+    const stepDownInput = document.getElementById('cad-step-down');
+    if (stepDownInput) {
+      stepDownInput.addEventListener('change', () => {
+        this.stepDown = parseFloat(stepDownInput.value);
+      });
+    }
+  
+    const feedRateInput = document.getElementById('cad-feed-rate');
+    if (feedRateInput) {
+      feedRateInput.addEventListener('change', () => {
+        this.feedRate = parseFloat(feedRateInput.value);
+      });
+    }
     
     // Depth input
     const depthInput = document.getElementById('cad-cut-depth');
@@ -154,6 +160,30 @@ export class CADDrawer {
     if (generateButton) {
       generateButton.addEventListener('click', this.generateGCode.bind(this));
     }
+  
+    // Add text size input if it doesn't exist yet
+    if (!document.getElementById('cad-text-size')) {
+      const textSizeInput = document.createElement('div');
+      textSizeInput.className = 'cad-settings-row';
+      textSizeInput.innerHTML = `
+        <label for="cad-text-size">Text Size:</label>
+        <input type="number" id="cad-text-size" value="${this.textSize}" min="5" step="1" max="100">
+        <span>px</span>
+      `;
+      
+      const settingsPanel = document.querySelector('.cad-settings-panel');
+      if (settingsPanel) {
+        settingsPanel.appendChild(textSizeInput);
+        
+        // Add event listener for text size
+        const textSizeElement = document.getElementById('cad-text-size');
+        if (textSizeElement) {
+          textSizeElement.addEventListener('change', () => {
+            this.textSize = parseFloat(textSizeElement.value);
+          });
+        }
+      }
+    }
   }
   
   handleResize() {
@@ -174,10 +204,10 @@ export class CADDrawer {
   }
   
   screenToWorld(x, y) {
-    // Convert screen coordinates to world coordinates
+
     return {
-      x: (x - this.centerX) / 10, // Scale by 10 pixels per mm
-      y: (this.centerY - y) / 10  // Invert Y axis to match CNC coordinate system
+      x: (x - this.centerX) / 10, 
+      y: (this.centerY - y) / 10  
     };
   }
   
@@ -198,6 +228,69 @@ export class CADDrawer {
   }
   
   handleMouseDown(event) {
+    // Special handling for text tool
+    if (this.currentTool === 'text') {
+      console.log('Text tool activated, handling click event');
+      
+      const rect = this.container.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      
+      // Convert to world coordinates
+      const worldPoint = this.screenToWorld(x, y);
+      
+      // Snap to grid
+      const snappedPoint = this.snapToGrid(worldPoint);
+      
+      // Save these for later use when the dialog is confirmed
+      this._pendingTextPosition = snappedPoint;
+      
+      // Show the text input dialog
+      this.showTextInputDialog((textContent) => {
+        if (!textContent || textContent.trim() === '') {
+          console.log('Text input was empty or cancelled');
+          return;
+        }
+        
+        console.log(`Creating text: "${textContent}" at position:`, snappedPoint);
+        
+        // Create text element
+        const screenPos = this.worldToScreen(snappedPoint.x, snappedPoint.y);
+        const textVisual = this.two.makeText(textContent, screenPos.x, screenPos.y);
+        
+        // Style the text
+        textVisual.fill = '#2ecc71'; // Green color
+        textVisual.size = this.textSize || 20; // Use the configurable text size or default
+        textVisual.family = this.textFont || 'Arial';
+        
+        // Create element object
+        const element = {
+          type: 'text',
+          text: textContent,
+          position: { ...snappedPoint },
+          depth: this.cutDepth,
+          operation: this.operationType,
+          size: this.textSize || 20,
+          font: this.textFont || 'Arial',
+          visual: textVisual
+        };
+        
+        // Add to drawing group and elements array
+        this.drawingGroup.add(textVisual);
+        this.elements.push(element);
+        this.two.update();
+        
+        // Update status
+        const statusMessage = document.getElementById('cad-status-message');
+        if (statusMessage) {
+          statusMessage.textContent = `Added text: "${textContent}"`;
+        }
+        
+        console.log(`Successfully added text "${textContent}" to elements array`);
+      });
+      return;
+    }
+    
     if (this.currentTool === 'select') {
       this.handleSelectTool(event);
       return;
@@ -237,7 +330,7 @@ export class CADDrawer {
       this.tempElement.linewidth = 2;
       this.tempElement.noFill();
       this.tempGroup.add(this.tempElement);
-    } if (this.currentTool === 'circle') {
+    } else if (this.currentTool === 'circle') {
       // Create temporary circle
       const screenStart = this.worldToScreen(snappedPoint.x, snappedPoint.y);
       this.tempElement = this.two.makeCircle(
@@ -260,7 +353,86 @@ export class CADDrawer {
       statusMessage.textContent = `Drawing: ${this.currentTool} at depth: ${this.cutDepth}mm`;
     }
   }
+
+  setTool(tool) {
+    console.log('Setting tool to:', tool);
+    this.currentTool = tool;
+    
+    // Deselect element when switching tools
+    if (tool !== 'select') {
+      this.selectedElement = null;
+      this.updateAllVisuals();
+    }
+    
+    // Update status message
+    const statusMessage = document.getElementById('cad-status-message');
+    if (statusMessage) {
+      statusMessage.textContent = `Selected tool: ${tool}`;
+    }
+  }
   
+  showTextInputDialog(callback) {
+    const modal = document.getElementById('text-input-modal-overlay');
+    const inputField = document.getElementById('text-input-value');
+    const confirmBtn = document.getElementById('confirm-text-btn');
+    const cancelBtn = document.getElementById('cancel-text-btn');
+    const closeBtn = document.getElementById('close-text-modal');
+    
+    // Clear previous input
+    inputField.value = '';
+    
+    // Show modal
+    modal.classList.add('active');
+    
+    // Focus input field
+    setTimeout(() => {
+      inputField.focus();
+    }, 100);
+    
+    // Handle confirm button click
+    const handleConfirm = () => {
+      const text = inputField.value;
+      modal.classList.remove('active');
+      
+      // Remove event listeners
+      confirmBtn.removeEventListener('click', handleConfirm);
+      cancelBtn.removeEventListener('click', handleCancel);
+      closeBtn.removeEventListener('click', handleCancel);
+      inputField.removeEventListener('keyup', handleKeyup);
+      
+      // Call callback with text value
+      callback(text);
+    };
+    
+    // Handle cancel button click
+    const handleCancel = () => {
+      modal.classList.remove('active');
+      
+      // Remove event listeners
+      confirmBtn.removeEventListener('click', handleConfirm);
+      cancelBtn.removeEventListener('click', handleCancel);
+      closeBtn.removeEventListener('click', handleCancel);
+      inputField.removeEventListener('keyup', handleKeyup);
+      
+      // Call callback with null to indicate cancellation
+      callback(null);
+    };
+    
+    // Handle Enter key press
+    const handleKeyup = (e) => {
+      if (e.key === 'Enter') {
+        handleConfirm();
+      } else if (e.key === 'Escape') {
+        handleCancel();
+      }
+    };
+    
+    // Add event listeners
+    confirmBtn.addEventListener('click', handleConfirm);
+    cancelBtn.addEventListener('click', handleCancel);
+    closeBtn.addEventListener('click', handleCancel);
+    inputField.addEventListener('keyup', handleKeyup);
+  }
   handleMouseMove(event) {
     if (!this.isDrawing || !this.tempElement) return;
     
@@ -590,11 +762,47 @@ export class CADDrawer {
           return element;
         }
       }
+      else if (element.type === 'text') {
+        // Calculate approximate text dimensions based on text length and size
+        const textWidth = element.text.length * (element.size / 10) * 0.6;
+        const textHeight = element.size / 10;
+        
+        // Check if point is within text bounding box
+        if (
+          point.x >= element.position.x - textWidth/2 - tolerance &&
+          point.x <= element.position.x + textWidth/2 + tolerance &&
+          point.y >= element.position.y - textHeight/2 - tolerance &&
+          point.y <= element.position.y + textHeight/2 + tolerance
+        ) {
+          return element;
+        }
+      }
+      
     }
     
     return null;
   }
   
+  convertTextToPaths(text, x, y, size, font) {
+    console.log(`Converting text "${text}" to paths`);
+    const paths = [];
+    let offsetX = 0;
+    
+    for (let i = 0; i < text.length; i++) {
+      // Each character is approximated as a small rectangle
+      const charWidth = size * 0.6;
+      paths.push({
+        type: 'rectangle',
+        center: { x: x + offsetX + charWidth/2, y: y },
+        width: charWidth,
+        height: size
+      });
+      offsetX += charWidth;
+    }
+    
+    return paths;
+  }
+
   isPointNearLine(point, lineStart, lineEnd, tolerance) {
     // Calculate the distance from point to line
     const dx = lineEnd.x - lineStart.x;
@@ -670,24 +878,6 @@ export class CADDrawer {
     this.elements.forEach(element => {
       this.updateElementVisual(element);
     });
-  }
-  
-  setTool(tool) {
-    this.currentTool = tool;
-    
-    // Deselect element when switching tools
-    if (tool !== 'select') {
-      this.selectedElement = null;
-      this.updateAllVisuals();
-    }
-    
-    console.log('Current tool:', this.currentTool);
-    
-    // Update status message
-    const statusMessage = document.getElementById('cad-status-message');
-    if (statusMessage) {
-      statusMessage.textContent = `Selected tool: ${tool}`;
-    }
   }
   
   clearDrawing() {
@@ -798,16 +988,15 @@ export class CADDrawer {
     if (statusMessage) {
       statusMessage.textContent = `G-code saved as ${filename}`;
     }
-    
-// Optionally switch to G-code tab
-const tabButtons = document.querySelectorAll('.tab-button');
-const gcodeTabButton = Array.from(tabButtons).find(button => button.getAttribute('data-tab') === 'gcode');
-if (gcodeTabButton) {
-  gcodeTabButton.click();
-}
-}
+  
+    // Optionally switch to G-code tab
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const gcodeTabButton = Array.from(tabButtons).find(button => button.getAttribute('data-tab') === 'gcode');
+    if (gcodeTabButton) {
+      gcodeTabButton.click();
+    }
+  }
 
-// Generate G-code for 2.5D operations
 generate25DGCode(elements) {
   // Default settings
   const safeZ = 5;
@@ -815,95 +1004,125 @@ generate25DGCode(elements) {
   const plungeRate = Math.min(this.feedRate / 2, 200); // Half feed rate or 200, whichever is lower
   const stepDown = this.stepDown;
   
-  
-let gcode = [];
+  let gcode = [];
 
-// Add header
-gcode.push("; G-code generated from 2.5D CAD drawing");
-gcode.push("; Generated on " + new Date().toLocaleString());
-gcode.push("; Operations: " + elements.length);
-gcode.push("");
-gcode.push("G21 ; Set units to millimeters");
-gcode.push("G90 ; Absolute positioning");
-gcode.push("G94 ; Feed rate in units per minute");
-gcode.push(`G0 Z${safeZ} F${feedRate*2} ; Move to safe height`);
-gcode.push("");
+  // Add header
+  gcode.push("; G-code generated from 2.5D CAD drawing");
+  gcode.push("; Generated on " + new Date().toLocaleString());
+  gcode.push("; Operations: " + elements.length);
+  gcode.push("");
+  gcode.push("G21 ; Set units to millimeters");
+  gcode.push("G90 ; Absolute positioning");
+  gcode.push("G94 ; Feed rate in units per minute");
+  gcode.push(`G0 Z${safeZ} F${feedRate*2} ; Move to safe height`);
+  gcode.push("");
 
-// Sort elements by operation type
-// This helps group similar operations together
-const sortedElements = [...elements].sort((a, b) => {
-  // Sort by operation first
-  if (a.operation !== b.operation) {
-    const opOrder = { 'drill': 0, 'pocket': 1, 'profile': 2 };
-    return opOrder[a.operation] - opOrder[b.operation];
-  }
-  // Then by depth (deeper cuts later)
-  return b.depth - a.depth;
-});
-
-// Process each element
-for (let i = 0; i < sortedElements.length; i++) {
-  const element = sortedElements[i];
-  
-  gcode.push(`; Operation ${i+1}: ${element.operation.toUpperCase()} - ${element.type.toUpperCase()}`);
-  gcode.push(`; Depth: ${element.depth} mm`);
-  
-  if (element.operation === 'drill') {
-    // Generate drilling operation
-    if (element.type === 'circle') {
-      gcode.push(this.generateDrillOperation(element, safeZ, plungeRate, feedRate, stepDown));
-    } else {
-      gcode.push("; Warning: Drill operation only supported for circles");
-      gcode.push("; Using center point as drill location");
-      
-      let center;
-      if (element.type === 'rectangle') {
-        center = element.center;
-      } else if (element.type === 'line') {
-        center = {
-          x: (element.start.x + element.end.x) / 2,
-          y: (element.start.y + element.end.y) / 2
-        };
-      }
-      
-      if (center) {
-        const drillElement = {
-          type: 'circle',
-          center: center,
-          radius: 0.5, // Default small radius
-          depth: element.depth,
-          operation: 'drill'
-        };
-        gcode.push(this.generateDrillOperation(drillElement, safeZ, plungeRate, feedRate, stepDown));
-      }
+  // Sort elements by operation type
+  const sortedElements = [...elements].sort((a, b) => {
+    // Sort by operation first
+    if (a.operation !== b.operation) {
+      const opOrder = { 'drill': 0, 'pocket': 1, 'profile': 2 };
+      return opOrder[a.operation] - opOrder[b.operation];
     }
-  } else if (element.operation === 'pocket') {
-    // Generate pocket operation
-    if (element.type === 'rectangle') {
-      gcode.push(this.generateRectanglePocketOperation(element, safeZ, plungeRate, feedRate, stepDown));
-    } else if (element.type === 'circle') {
-      gcode.push(this.generateCirclePocketOperation(element, safeZ, plungeRate, feedRate, stepDown));
+    // Then by depth (deeper cuts later)
+    return b.depth - a.depth;
+  });
+
+  // Process each element
+  for (let i = 0; i < sortedElements.length; i++) {
+    const element = sortedElements[i]; // Make sure we're using the element from the loop
+    
+    gcode.push(`; Operation ${i+1}: ${element.operation.toUpperCase()} - ${element.type.toUpperCase()}`);
+    gcode.push(`; Depth: ${element.depth} mm`);
+    
+    if (element.type === 'text') {
+      gcode.push(`; Text: "${element.text}"`);
+      gcode.push(`; Position: X${element.position.x.toFixed(3)}, Y${element.position.y.toFixed(3)}`);
+      
+      // Move to text position
+      gcode.push(`G0 X${element.position.x} Y${element.position.y} ; Move to text position`);
+      gcode.push(`G1 Z${element.depth} F${plungeRate} ; Lower to engraving depth`);
+    
+      // Calculate approximate text width based on characters
+      const charWidth = (element.size || 20) * 0.6 / 10; // Convert pixel size to mm 
+      const textWidth = element.text.length * charWidth;
+      const textHeight = (element.size || 20) / 10; // Convert pixel size to mm
+      
+      // For simple text engraving, create a zigzag pattern that roughly covers the text area
+      const zigzagSteps = Math.max(3, Math.floor(textHeight / 1.5));
+      const stepSize = textHeight / zigzagSteps;
+      
+      for (let step = 0; step < zigzagSteps; step++) {
+        const yOffset = (step * stepSize) - (textHeight / 2);
+        
+        if (step % 2 === 0) {
+          // Left to right
+          gcode.push(`G1 X${element.position.x + textWidth} Y${element.position.y + yOffset} F${feedRate} ; Text row`);
+        } else {
+          // Right to left
+          gcode.push(`G1 X${element.position.x} Y${element.position.y + yOffset} F${feedRate} ; Text row`);
+        }
+      }
+      
+      // Return to safe height
+      gcode.push(`G0 Z${safeZ} ; Retract to safe height`);
+    }
+    else if (element.operation === 'drill') {
+      // Generate drilling operation
+      if (element.type === 'circle') {
+        gcode.push(this.generateDrillOperation(element, safeZ, plungeRate, feedRate, stepDown));
+      } else {
+        gcode.push("; Warning: Drill operation only supported for circles");
+        gcode.push("; Using center point as drill location");
+        
+        let center;
+        if (element.type === 'rectangle') {
+          center = element.center;
+        } else if (element.type === 'line') {
+          center = {
+            x: (element.start.x + element.end.x) / 2,
+            y: (element.start.y + element.end.y) / 2
+          };
+        }
+        
+        if (center) {
+          const drillElement = {
+            type: 'circle',
+            center: center,
+            radius: 0.5, // Default small radius
+            depth: element.depth,
+            operation: 'drill'
+          };
+          gcode.push(this.generateDrillOperation(drillElement, safeZ, plungeRate, feedRate, stepDown));
+        }
+      }
+    } else if (element.operation === 'pocket') {
+      // Generate pocket operation
+      if (element.type === 'rectangle') {
+        gcode.push(this.generateRectanglePocketOperation(element, safeZ, plungeRate, feedRate, stepDown));
+      } else if (element.type === 'circle') {
+        gcode.push(this.generateCirclePocketOperation(element, safeZ, plungeRate, feedRate, stepDown));
+      } else {
+        gcode.push("; Warning: Pocket operation not supported for this shape");
+        gcode.push("; Using profile operation instead");
+        gcode.push(this.generateProfileOperation(element, safeZ, plungeRate, feedRate, stepDown));
+      }
     } else {
-      gcode.push("; Warning: Pocket operation not supported for this shape");
-      gcode.push("; Using profile operation instead");
+      // Default to profile operation
       gcode.push(this.generateProfileOperation(element, safeZ, plungeRate, feedRate, stepDown));
     }
-  } else {
-    // Default to profile operation
-    gcode.push(this.generateProfileOperation(element, safeZ, plungeRate, feedRate, stepDown));
+    
+    gcode.push(""); // Add blank line between operations
   }
-  
-  gcode.push(""); // Add blank line between operations
-}
 
-// Add footer
-gcode.push("; Finish up");
-gcode.push(`G0 Z${safeZ} ; Final return to safe height`);
-gcode.push("G0 X0 Y0 ; Return to origin");
-gcode.push("M5 ; Turn off spindle");
-gcode.push("M30 ; End program");
+  // Add footer
+  gcode.push("; Finish up");
+  gcode.push(`G0 Z${safeZ} ; Final return to safe height`);
+  gcode.push("G0 X0 Y0 ; Return to origin");
+  gcode.push("M5 ; Turn off spindle");
+  gcode.push("M30 ; End program");
 
-return gcode.join('\n');
+  return gcode.join('\n');
 }
 
 generateDrillOperation(element, safeZ, plungeRate, feedRate, stepDown) {

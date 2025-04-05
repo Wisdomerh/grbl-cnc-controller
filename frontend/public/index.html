@@ -299,6 +299,9 @@ G0 X0 Y0 ; Return to origin</textarea>
         <button id="cad-circle-tool" class="cad-tool-btn" data-tool="circle">
           <i class="fas fa-circle"></i> Circle
         </button>
+        <button id="cad-text-tool" class="cad-tool-btn" data-tool="text">
+          <i class="fas fa-font"></i> Text
+        </button>
       </div>
       
       <div class="cad-toolbar-section">
@@ -603,6 +606,30 @@ G0 X0 Y0 ; Return to origin</textarea>
         </div>
       </div>
     </div>
+
+    <!-- Text Input Dialog -->
+<div class="modal-overlay" id="text-input-modal-overlay">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <h2><i class="fas fa-font"></i>&nbsp; Enter Text</h2>
+      <button class="modal-close" id="close-text-modal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label for="text-input-value">Text:</label>
+        <input type="text" id="text-input-value" value="">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button id="cancel-text-btn" class="btn-secondary">
+        <i class="fas fa-times"></i>&nbsp; Cancel
+      </button>
+      <button id="confirm-text-btn" class="btn-primary">
+        <i class="fas fa-check"></i>&nbsp; Confirm
+      </button>
+    </div>
+  </div>
+</div>
     <!-- Load JavaScript files -->
     <script type="module" src="../src/app.js"></script>
     <script type="module" src="../src/socket.js"></script>
