@@ -314,6 +314,703 @@ export class CADDrawer {
       y: Math.round(point.y / this.gridSize) * this.gridSize
     };
   }
+
+  generateTextGcode(element, safeZ, plungeRate, feedRate, stepDown) {
+    const gcode = [];
+    
+    gcode.push(`; Text Outline: "${element.text}"`);
+    gcode.push(`; Position: X${element.position.x.toFixed(3)}, Y${element.position.y.toFixed(3)}`);
+    gcode.push(`; Depth: ${element.depth} mm`);
+    
+    // Calculate text metrics
+    const charWidth = (element.size || 20) * 0.6 / 10; // Convert pixel size to mm
+    const charHeight = (element.size || 20) / 10; // Convert pixel size to mm
+    const spacing = charWidth * 0.2; // Space between characters
+    
+    // Determine total text width
+    const totalWidth = element.text.length * (charWidth + spacing) - spacing;
+    
+    // Calculate start position (centered on the original position)
+    const startX = element.position.x - totalWidth / 2;
+    const baseY = element.position.y;
+    
+    // Perform cutting in multiple depth passes if needed
+    let currentDepth = 0;
+    const targetDepth = element.depth;
+    
+    while (currentDepth > targetDepth) {
+      // Calculate the next depth level
+      currentDepth = Math.max(currentDepth - stepDown, targetDepth);
+      
+      gcode.push(`; Cutting at depth: ${currentDepth.toFixed(3)} mm`);
+      
+      // Process each character
+      let xPos = startX;
+      
+      for (let charIndex = 0; charIndex < element.text.length; charIndex++) {
+        const char = element.text[charIndex];
+        
+        // Skip spaces but advance position
+        if (char === ' ') {
+          xPos += charWidth + spacing;
+          continue;
+        }
+        
+        // Center of this character
+        const charCenterX = xPos + charWidth / 2;
+        
+        gcode.push(`; Character: ${char}`);
+        gcode.push(`G0 Z${safeZ} ; Raise to safe height`);
+        
+        // Generate the outline path for this character
+        const { path, width } = this.getCharacterPath(char, charCenterX, baseY, charWidth, charHeight);
+        
+        // Move to first point of the path
+        if (path.length > 0) {
+          gcode.push(`G0 X${path[0].x} Y${path[0].y} ; Move to start point`);
+          gcode.push(`G1 Z${currentDepth} F${plungeRate} ; Plunge to cutting depth`);
+          
+          // Follow the path
+          for (let i = 1; i < path.length; i++) {
+            const point = path[i];
+            if (point.type === 'line') {
+              gcode.push(`G1 X${point.x} Y${point.y} F${feedRate} ; Line`);
+            } else if (point.type === 'arc') {
+              // For arcs, use G2/G3 commands with I,J parameters
+              const prev = path[i-1];
+              const centerX = point.centerX;
+              const centerY = point.centerY;
+              const dx = centerX - prev.x;
+              const dy = centerY - prev.y;
+              const cmd = point.clockwise ? 'G2' : 'G3';
+              gcode.push(`${cmd} X${point.x} Y${point.y} I${dx.toFixed(4)} J${dy.toFixed(4)} F${feedRate} ; Arc`);
+            }
+          }
+        }
+        
+        // Advance to next character position
+        xPos += width + spacing;
+      }
+    }
+    
+    // Return to safe height
+    gcode.push(`G0 Z${safeZ} ; Return to safe height`);
+    
+    return gcode;
+  }
+
+  getCharacterPath(char, centerX, centerY, width, height) {
+    // Set up path array to hold points
+    const path = [];
+    let actualWidth = width;
+    
+    // Half dimensions
+    const w2 = width / 2;
+    const h2 = height / 2;
+    
+    // Character-specific paths
+    switch (char.toLowerCase()) {
+      case 'a':
+        // Top point of A
+        path.push({ x: centerX, y: centerY - h2, type: 'move' });
+        // Down to bottom left
+        path.push({ x: centerX - w2, y: centerY + h2, type: 'line' });
+        // Across to bottom right
+        path.push({ x: centerX + w2, y: centerY + h2, type: 'line' });
+        // Up to top
+        path.push({ x: centerX, y: centerY - h2, type: 'line' });
+        // Move to left side middle
+        path.push({ x: centerX - w2/2, y: centerY, type: 'move' });
+        // Draw crossbar
+        path.push({ x: centerX + w2/2, y: centerY, type: 'line' });
+        break;
+        
+      case 'b':
+        // Start at top left
+        path.push({ x: centerX - w2, y: centerY - h2, type: 'move' });
+        // Down to bottom left
+        path.push({ x: centerX - w2, y: centerY + h2, type: 'line' });
+        // Right to bottom middle
+        path.push({ x: centerX, y: centerY + h2, type: 'line' });
+        // Arc to middle right
+        path.push({ 
+          x: centerX + w2, 
+          y: centerY, 
+          centerX: centerX, 
+          centerY: centerY + h2/2, 
+          type: 'arc', 
+          clockwise: true 
+        });
+        // Arc to top middle
+        path.push({ 
+          x: centerX, 
+          y: centerY - h2/2, 
+          centerX: centerX, 
+          centerY: centerY - h2/4, 
+          type: 'arc', 
+          clockwise: true 
+        });
+        // Back to start
+        path.push({ x: centerX - w2, y: centerY - h2, type: 'line' });
+        break;
+        
+      case 'c':
+        // Start at top right
+        path.push({ x: centerX + w2, y: centerY - h2/2, type: 'move' });
+        // Arc to bottom right
+        path.push({ 
+          x: centerX, 
+          y: centerY + h2, 
+          centerX: centerX, 
+          centerY: centerY, 
+          type: 'arc', 
+          clockwise: false 
+        });
+        // Arc to top left
+        path.push({ 
+          x: centerX - w2, 
+          y: centerY, 
+          centerX: centerX - w2/2, 
+          centerY: centerY + h2/2, 
+          type: 'arc', 
+          clockwise: false 
+        });
+        // Arc back to top right
+        path.push({ 
+          x: centerX + w2, 
+          y: centerY - h2/2, 
+          centerX: centerX, 
+          centerY: centerY - h2/2, 
+          type: 'arc', 
+          clockwise: false 
+        });
+        break;
+        
+      case 'd':
+        // Start at top left
+        path.push({ x: centerX - w2, y: centerY - h2, type: 'move' });
+        // Down to bottom left
+        path.push({ x: centerX - w2, y: centerY + h2, type: 'line' });
+        // Arc to middle right
+        path.push({ 
+          x: centerX + w2, 
+          y: centerY, 
+          centerX: centerX, 
+          centerY: centerY + h2/2, 
+          type: 'arc', 
+          clockwise: true 
+        });
+        // Arc to top middle
+        path.push({ 
+          x: centerX - w2, 
+          y: centerY - h2, 
+          centerX: centerX, 
+          centerY: centerY - h2/2, 
+          type: 'arc', 
+          clockwise: true 
+        });
+        break;
+        
+      case 'e':
+        // Start at top left
+        path.push({ x: centerX - w2, y: centerY - h2, type: 'move' });
+        // Down to bottom left
+        path.push({ x: centerX - w2, y: centerY + h2, type: 'line' });
+        // Right to bottom right
+        path.push({ x: centerX + w2, y: centerY + h2, type: 'line' });
+        // Back to bottom left
+        path.push({ x: centerX - w2, y: centerY + h2, type: 'move' });
+        // Up to middle left
+        path.push({ x: centerX - w2, y: centerY, type: 'line' });
+        // Right to middle right
+        path.push({ x: centerX + w2/2, y: centerY, type: 'line' });
+        // Back to middle left
+        path.push({ x: centerX - w2, y: centerY, type: 'move' });
+        // Up to top left
+        path.push({ x: centerX - w2, y: centerY - h2, type: 'line' });
+        // Right to top right
+        path.push({ x: centerX + w2, y: centerY - h2, type: 'line' });
+        break;
+        
+      case 'f':
+        // Start at top left
+        path.push({ x: centerX - w2, y: centerY - h2, type: 'move' });
+        // Down to bottom left
+        path.push({ x: centerX - w2, y: centerY + h2, type: 'line' });
+        // Back to middle left
+        path.push({ x: centerX - w2, y: centerY, type: 'move' });
+        // Right to middle right
+        path.push({ x: centerX + w2/2, y: centerY, type: 'line' });
+        // Back to top left
+        path.push({ x: centerX - w2, y: centerY - h2, type: 'move' });
+        // Right to top right
+        path.push({ x: centerX + w2, y: centerY - h2, type: 'line' });
+        break;
+        
+      case 'g':
+        // Start at top right
+        path.push({ x: centerX + w2, y: centerY - h2/2, type: 'move' });
+        // Arc to bottom right
+        path.push({ 
+          x: centerX, 
+          y: centerY + h2, 
+          centerX: centerX, 
+          centerY: centerY, 
+          type: 'arc', 
+          clockwise: false 
+        });
+        // Arc to top left
+        path.push({ 
+          x: centerX - w2, 
+          y: centerY, 
+          centerX: centerX - w2/2, 
+          centerY: centerY + h2/2, 
+          type: 'arc', 
+          clockwise: false 
+        });
+        // Arc to top right
+        path.push({ 
+          x: centerX + w2, 
+          y: centerY - h2/2, 
+          centerX: centerX, 
+          centerY: centerY - h2/2, 
+          type: 'arc', 
+          clockwise: false 
+        });
+        // Straight down to center right
+        path.push({ x: centerX + w2, y: centerY, type: 'line' });
+        // Draw crossbar to center
+        path.push({ x: centerX, y: centerY, type: 'line' });
+        break;
+        
+      case 'h':
+        // Start at top left
+        path.push({ x: centerX - w2, y: centerY - h2, type: 'move' });
+        // Down to bottom left
+        path.push({ x: centerX - w2, y: centerY + h2, type: 'line' });
+        // Move to top right
+        path.push({ x: centerX + w2, y: centerY - h2, type: 'move' });
+        // Down to bottom right
+        path.push({ x: centerX + w2, y: centerY + h2, type: 'line' });
+        // Move to middle left
+        path.push({ x: centerX - w2, y: centerY, type: 'move' });
+        // Right to middle right
+        path.push({ x: centerX + w2, y: centerY, type: 'line' });
+        break;
+        
+      case 'i':
+        // Start at top center
+        path.push({ x: centerX, y: centerY - h2, type: 'move' });
+        // Down to bottom center
+        path.push({ x: centerX, y: centerY + h2, type: 'line' });
+        // Top bar left
+        path.push({ x: centerX - w2/2, y: centerY - h2, type: 'move' });
+        // Top bar right
+        path.push({ x: centerX + w2/2, y: centerY - h2, type: 'line' });
+        // Bottom bar left
+        path.push({ x: centerX - w2/2, y: centerY + h2, type: 'move' });
+        // Bottom bar right
+        path.push({ x: centerX + w2/2, y: centerY + h2, type: 'line' });
+        actualWidth = width * 0.5; // I is narrower
+        break;
+        
+      case 'j':
+        // Start at top center
+        path.push({ x: centerX, y: centerY - h2, type: 'move' });
+        // Down to bottom center
+        path.push({ x: centerX, y: centerY + h2/2, type: 'line' });
+        // Arc to left
+        path.push({ 
+          x: centerX - w2/2, 
+          y: centerY + h2, 
+          centerX: centerX - w2/4, 
+          centerY: centerY + h2/2, 
+          type: 'arc', 
+          clockwise: false 
+        });
+        // Top bar left
+        path.push({ x: centerX - w2/2, y: centerY - h2, type: 'move' });
+        // Top bar right
+        path.push({ x: centerX + w2/2, y: centerY - h2, type: 'line' });
+        break;
+        
+      case 'k':
+        // Start at top left
+        path.push({ x: centerX - w2, y: centerY - h2, type: 'move' });
+        // Down to bottom left
+        path.push({ x: centerX - w2, y: centerY + h2, type: 'line' });
+        // Move to middle left
+        path.push({ x: centerX - w2, y: centerY, type: 'move' });
+        // Diagonal to top right
+        path.push({ x: centerX + w2, y: centerY - h2, type: 'line' });
+        // Back to middle left
+        path.push({ x: centerX - w2, y: centerY, type: 'move' });
+        // Diagonal to bottom right
+        path.push({ x: centerX + w2, y: centerY + h2, type: 'line' });
+        break;
+        
+      case 'l':
+        // Start at top left
+        path.push({ x: centerX - w2, y: centerY - h2, type: 'move' });
+        // Down to bottom left
+        path.push({ x: centerX - w2, y: centerY + h2, type: 'line' });
+        // Right to bottom right
+        path.push({ x: centerX + w2, y: centerY + h2, type: 'line' });
+        actualWidth = width * 0.7; // L is narrower
+        break;
+        
+      case 'm':
+        // Start at bottom left
+        path.push({ x: centerX - w2, y: centerY + h2, type: 'move' });
+        // Up to top left
+        path.push({ x: centerX - w2, y: centerY - h2, type: 'line' });
+        // Diagonal to middle center
+        path.push({ x: centerX, y: centerY, type: 'line' });
+        // Diagonal to top right
+        path.push({ x: centerX + w2, y: centerY - h2, type: 'line' });
+        // Down to bottom right
+        path.push({ x: centerX + w2, y: centerY + h2, type: 'line' });
+        actualWidth = width * 1.2; // M is wider
+        break;
+        
+      case 'n':
+        // Start at bottom left
+        path.push({ x: centerX - w2, y: centerY + h2, type: 'move' });
+        // Up to top left
+        path.push({ x: centerX - w2, y: centerY - h2, type: 'line' });
+        // Diagonal to bottom right
+        path.push({ x: centerX + w2, y: centerY + h2, type: 'line' });
+        // Up to top right
+        path.push({ x: centerX + w2, y: centerY - h2, type: 'line' });
+        break;
+        
+      case 'o':
+        // Start at top center
+        path.push({ x: centerX, y: centerY - h2, type: 'move' });
+        // Arc to right center
+        path.push({ 
+          x: centerX + w2, 
+          y: centerY, 
+          centerX: centerX + w2/2, 
+          centerY: centerY - h2/2, 
+          type: 'arc', 
+          clockwise: true 
+        });
+        // Arc to bottom center
+        path.push({ 
+          x: centerX, 
+          y: centerY + h2, 
+          centerX: centerX + w2/2, 
+          centerY: centerY + h2/2, 
+          type: 'arc', 
+          clockwise: true 
+        });
+        // Arc to left center
+        path.push({ 
+          x: centerX - w2, 
+          y: centerY, 
+          centerX: centerX - w2/2, 
+          centerY: centerY + h2/2, 
+          type: 'arc', 
+          clockwise: true 
+        });
+        // Arc back to top center
+        path.push({ 
+          x: centerX, 
+          y: centerY - h2, 
+          centerX: centerX - w2/2, 
+          centerY: centerY - h2/2, 
+          type: 'arc', 
+          clockwise: true 
+        });
+        break;
+        
+      case 'p':
+        // Start at bottom left
+        path.push({ x: centerX - w2, y: centerY + h2, type: 'move' });
+        // Up to top left
+        path.push({ x: centerX - w2, y: centerY - h2, type: 'line' });
+        // Right to top middle
+        path.push({ x: centerX + w2/2, y: centerY - h2, type: 'line' });
+        // Arc to middle right
+        path.push({ 
+          x: centerX + w2, 
+          y: centerY - h2/4, 
+          centerX: centerX + w2/4, 
+          centerY: centerY - h2/2, 
+          type: 'arc', 
+          clockwise: true 
+        });
+        // Arc to middle left
+        path.push({ 
+          x: centerX - w2, 
+          y: centerY, 
+          centerX: centerX, 
+          centerY: centerY, 
+          type: 'arc', 
+          clockwise: true 
+        });
+        break;
+        
+      case 'q':
+        // Draw O first
+        path.push({ x: centerX, y: centerY - h2, type: 'move' });
+        path.push({ 
+          x: centerX + w2, 
+          y: centerY, 
+          centerX: centerX + w2/2, 
+          centerY: centerY - h2/2, 
+          type: 'arc', 
+          clockwise: true 
+        });
+        path.push({ 
+          x: centerX, 
+          y: centerY + h2, 
+          centerX: centerX + w2/2, 
+          centerY: centerY + h2/2, 
+          type: 'arc', 
+          clockwise: true 
+        });
+        path.push({ 
+          x: centerX - w2, 
+          y: centerY, 
+          centerX: centerX - w2/2, 
+          centerY: centerY + h2/2, 
+          type: 'arc', 
+          clockwise: true 
+        });
+        path.push({ 
+          x: centerX, 
+          y: centerY - h2, 
+          centerX: centerX - w2/2, 
+          centerY: centerY - h2/2, 
+          type: 'arc', 
+          clockwise: true 
+        });
+        // Add tail
+        path.push({ x: centerX + w2/2, y: centerY + h2/2, type: 'move' });
+        path.push({ x: centerX + w2, y: centerY + h2, type: 'line' });
+        break;
+        
+      case 'r':
+        // Start at bottom left
+        path.push({ x: centerX - w2, y: centerY + h2, type: 'move' });
+        // Up to top left
+        path.push({ x: centerX - w2, y: centerY - h2, type: 'line' });
+        // Right to top middle
+        path.push({ x: centerX + w2/2, y: centerY - h2, type: 'line' });
+        // Arc to middle right
+        path.push({ 
+          x: centerX + w2, 
+          y: centerY - h2/4, 
+          centerX: centerX + w2/4, 
+          centerY: centerY - h2/2, 
+          type: 'arc', 
+          clockwise: true 
+        });
+        // Arc to middle left
+        path.push({ 
+          x: centerX - w2, 
+          y: centerY, 
+          centerX: centerX, 
+          centerY: centerY, 
+          type: 'arc', 
+          clockwise: true 
+        });
+        // Diagonal to bottom right
+        path.push({ x: centerX + w2, y: centerY + h2, type: 'line' });
+        break;
+        
+      case 's':
+        // Start at top right
+        path.push({ x: centerX + w2, y: centerY - h2/2, type: 'move' });
+        // Arc to top left
+        path.push({ 
+          x: centerX - w2, 
+          y: centerY - h2/2, 
+          centerX: centerX, 
+          centerY: centerY - h2, 
+          type: 'arc', 
+          clockwise: false 
+        });
+        // Arc to middle right
+        path.push({ 
+          x: centerX + w2/2, 
+          y: centerY, 
+          centerX: centerX - w2/4, 
+          centerY: centerY - h2/4, 
+          type: 'arc', 
+          clockwise: true 
+        });
+        // Arc to bottom right
+        path.push({ 
+          x: centerX + w2, 
+          y: centerY + h2/2, 
+          centerX: centerX + w2/2, 
+          centerY: centerY + h2/4, 
+          type: 'arc', 
+          clockwise: true 
+        });
+        // Arc to bottom left
+        path.push({ 
+          x: centerX - w2, 
+          y: centerY + h2/2, 
+          centerX: centerX, 
+          centerY: centerY + h2, 
+          type: 'arc', 
+          clockwise: false 
+        });
+        break;
+        
+      case 't':
+        // Start at top left
+        path.push({ x: centerX - w2, y: centerY - h2, type: 'move' });
+        // Right to top right
+        path.push({ x: centerX + w2, y: centerY - h2, type: 'line' });
+        // Move to top center
+        path.push({ x: centerX, y: centerY - h2, type: 'move' });
+        // Down to bottom center
+        path.push({ x: centerX, y: centerY + h2, type: 'line' });
+        break;
+        
+      case 'u':
+        // Start at top left
+        path.push({ x: centerX - w2, y: centerY - h2, type: 'move' });
+        // Down to bottom left
+        path.push({ x: centerX - w2, y: centerY + h2/2, type: 'line' });
+        // Arc to bottom right
+        path.push({ 
+          x: centerX + w2, 
+          y: centerY + h2/2, 
+          centerX: centerX, 
+          centerY: centerY + h2, 
+          type: 'arc', 
+          clockwise: true 
+        });
+        // Up to top right
+        path.push({ x: centerX + w2, y: centerY - h2, type: 'line' });
+        break;
+        
+      case 'v':
+        // Start at top left
+        path.push({ x: centerX - w2, y: centerY - h2, type: 'move' });
+        // Diagonal to bottom center
+        path.push({ x: centerX, y: centerY + h2, type: 'line' });
+        // Diagonal to top right
+        path.push({ x: centerX + w2, y: centerY - h2, type: 'line' });
+        break;
+        
+      case 'w':
+        // Start at top left
+        path.push({ x: centerX - w2, y: centerY - h2, type: 'move' });
+        // Down to bottom left
+        path.push({ x: centerX - w2, y: centerY + h2, type: 'line' });
+        // Up to middle center
+        path.push({ x: centerX, y: centerY, type: 'line' });
+        // Down to bottom right
+        path.push({ x: centerX + w2, y: centerY + h2, type: 'line' });
+        // Up to top right
+        path.push({ x: centerX + w2, y: centerY - h2, type: 'line' });
+        actualWidth = width * 1.2; // W is wider
+        break;
+        
+      case 'x':
+        // Start at top left
+        path.push({ x: centerX - w2, y: centerY - h2, type: 'move' });
+        // Diagonal to bottom right
+        path.push({ x: centerX + w2, y: centerY + h2, type: 'line' });
+        // Move to top right
+        path.push({ x: centerX + w2, y: centerY - h2, type: 'move' });
+        // Diagonal to bottom left
+        path.push({ x: centerX - w2, y: centerY + h2, type: 'line' });
+        break;
+        
+      case 'y':
+        // Start at top left
+        path.push({ x: centerX - w2, y: centerY - h2, type: 'move' });
+        // Diagonal to center
+        path.push({ x: centerX, y: centerY, type: 'line' });
+        // Down to bottom center
+        path.push({ x: centerX, y: centerY + h2, type: 'line' });
+        // Move back to center
+        path.push({ x: centerX, y: centerY, type: 'move' });
+        // Diagonal to top right
+        path.push({ x: centerX + w2, y: centerY - h2, type: 'line' });
+        break;
+        
+      case 'z':
+        // Start at top left
+        path.push({ x: centerX - w2, y: centerY - h2, type: 'move' });
+        // Right to top right
+        path.push({ x: centerX + w2, y: centerY - h2, type: 'line' });
+        // Diagonal to bottom left
+        path.push({ x: centerX - w2, y: centerY + h2, type: 'line' });
+        // Right to bottom right
+        path.push({ x: centerX + w2, y: centerY + h2, type: 'line' });
+        break;
+        
+      // Add numeric characters
+      case '0':
+        // Similar to O
+        path.push({ x: centerX, y: centerY - h2, type: 'move' });
+        path.push({ 
+          x: centerX + w2, 
+          y: centerY, 
+          centerX: centerX + w2/2, 
+          centerY: centerY - h2/2, 
+          type: 'arc', 
+          clockwise: true 
+        });
+        path.push({ 
+          x: centerX, 
+          y: centerY + h2, 
+          centerX: centerX + w2/2, 
+          centerY: centerY + h2/2, 
+          type: 'arc', 
+          clockwise: true 
+        });
+        path.push({ 
+          x: centerX - w2, 
+          y: centerY, 
+          centerX: centerX - w2/2, 
+          centerY: centerY + h2/2, 
+          type: 'arc', 
+          clockwise: true 
+        });
+        path.push({ 
+          x: centerX, 
+          y: centerY - h2, 
+          centerX: centerX - w2/2, 
+          centerY: centerY - h2/2, 
+          type: 'arc', 
+          clockwise: true 
+        });
+        // Add diagonal line
+        path.push({ x: centerX - w2/2, y: centerY - h2/2, type: 'move' });
+        path.push({ x: centerX + w2/2, y: centerY + h2/2, type: 'line' });
+        break;
+        
+      // Default for any other character - simple rectangle outline
+      default:
+        // Top left
+        path.push({ x: centerX - w2, y: centerY - h2, type: 'move' });
+        // Top right
+        path.push({ x: centerX + w2, y: centerY - h2, type: 'line' });
+        // Bottom right
+        path.push({ x: centerX + w2, y: centerY + h2, type: 'line' });
+        // Bottom left
+        path.push({ x: centerX - w2, y: centerY + h2, type: 'line' });
+        // Back to top left
+        path.push({ x: centerX - w2, y: centerY - h2, type: 'line' });
+        break;
+        }
+        
+        // Return the path and actual width
+        return {
+          path: path,
+          width: actualWidth
+        };
+      }
   
   handleMouseDown(event) {
     // Special handling for text tool
@@ -1453,10 +2150,9 @@ generate25DGCode(elements) {
       const charWidth = (element.size || 20) * 0.6 / 10; // Convert pixel size to mm
       const charHeight = (element.size || 20) / 10; // Convert pixel size to mm
       const spacing = charWidth * 0.2; // Space between characters
-      
+      const textGcode = this.generateTextGcode(element, safeZ, plungeRate, feedRate, stepDown);
       // Generate G-code for each character (as outlines)
       let xOffset = 0;
-      
       for (let charIndex = 0; charIndex < element.text.length; charIndex++) {
         const char = element.text[charIndex];
         
@@ -1542,6 +2238,7 @@ generate25DGCode(elements) {
       
       // Return to safe height after completing all characters
       gcode.push(`G0 Z${safeZ} ; Retract to safe height`);
+      gcode = gcode.concat(textGcode);
     }
     else if (element.operation === 'drill') {
       // Generate drilling operation
