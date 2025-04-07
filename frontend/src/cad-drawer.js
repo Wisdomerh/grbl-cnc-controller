@@ -31,7 +31,16 @@ export class CADDrawer {
     this.currentText = '';
     this.textSize = 20; 
     this.textFont = 'Arial';
+
+    this.isDraggingElement = false;
+    this.dragStartPoint = null;
+    this.elementStartPosition = null;
+    this.isResizingElement = false;
+    this.resizeStartPoint = null;
+    this.resizeHandle = null;
     
+    this.resizeHandlesGroup = null;
+  
     console.log('CAD Drawer initialized with 2.5D support');
   }
 
@@ -203,6 +212,85 @@ export class CADDrawer {
     this.two.update();
   }
   
+  drawResizeHandles() {
+    // Remove any existing handles
+    if (this.resizeHandlesGroup) {
+      this.two.remove(this.resizeHandlesGroup);
+    }
+    
+    // If no element is selected, return
+    if (!this.selectedElement) return;
+    
+    // Create a new group for handles
+    this.resizeHandlesGroup = this.two.makeGroup();
+    
+    // Define handle positions based on element type
+    let handles = [];
+    
+    if (this.selectedElement.type === 'circle') {
+      const center = this.selectedElement.center;
+      const radius = this.selectedElement.radius;
+      
+      // Add a handle at the edge of the circle (east point)
+      handles.push({
+        x: center.x + radius,
+        y: center.y,
+        id: 'radius'
+      });
+    } else if (this.selectedElement.type === 'rectangle') {
+      const center = this.selectedElement.center;
+      const halfWidth = this.selectedElement.width / 2;
+      const halfHeight = this.selectedElement.height / 2;
+      
+      // Add handles at the corners and sides
+      handles = [
+        { x: center.x - halfWidth, y: center.y - halfHeight, id: 'top-left' },
+        { x: center.x + halfWidth, y: center.y - halfHeight, id: 'top-right' },
+        { x: center.x - halfWidth, y: center.y + halfHeight, id: 'bottom-left' },
+        { x: center.x + halfWidth, y: center.y + halfHeight, id: 'bottom-right' },
+        { x: center.x, y: center.y - halfHeight, id: 'top' },
+        { x: center.x, y: center.y + halfHeight, id: 'bottom' },
+        { x: center.x - halfWidth, y: center.y, id: 'left' },
+        { x: center.x + halfWidth, y: center.y, id: 'right' }
+      ];
+    } else if (this.selectedElement.type === 'line') {
+      // Add handles at the endpoints
+      handles = [
+        { ...this.selectedElement.start, id: 'start' },
+        { ...this.selectedElement.end, id: 'end' }
+      ];
+    } else if (this.selectedElement.type === 'text') {
+      // For text, allow resizing by dragging the right side
+      const position = this.selectedElement.position;
+      const width = (this.selectedElement.text.length * (this.selectedElement.size || 20) * 0.6) / 10;
+      
+      handles.push({
+        x: position.x + width/2,
+        y: position.y,
+        id: 'size'
+      });
+    }
+    
+    // Draw all handles
+    for (const handle of handles) {
+      const screenPos = this.worldToScreen(handle.x, handle.y);
+      const handleSize = 6; // Size in pixels
+      
+      const handleVisual = this.two.makeRectangle(
+        screenPos.x, screenPos.y, 
+        handleSize, handleSize
+      );
+      
+      handleVisual.fill = '#ff9800'; // Orange color
+      handleVisual.stroke = '#000';
+      handleVisual.linewidth = 1;
+      
+      this.resizeHandlesGroup.add(handleVisual);
+    }
+    
+    this.two.update();
+  }
+
   screenToWorld(x, y) {
 
     return {
@@ -433,9 +521,8 @@ export class CADDrawer {
     closeBtn.addEventListener('click', handleCancel);
     inputField.addEventListener('keyup', handleKeyup);
   }
+
   handleMouseMove(event) {
-    if (!this.isDrawing || !this.tempElement) return;
-    
     const rect = this.container.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
@@ -446,7 +533,176 @@ export class CADDrawer {
     // Snap to grid
     const snappedPoint = this.snapToGrid(worldPoint);
     
-    // Update temporary element based on current tool
+    // Handle element dragging
+    if (this.isDraggingElement && this.selectedElement && this.dragStartPoint) {
+      // Calculate drag delta
+      const deltaX = snappedPoint.x - this.dragStartPoint.x;
+      const deltaY = snappedPoint.y - this.dragStartPoint.y;
+      
+      // Update element position based on type
+      if (this.selectedElement.type === 'circle') {
+        this.selectedElement.center.x = this.elementStartPosition.x + deltaX;
+        this.selectedElement.center.y = this.elementStartPosition.y + deltaY;
+        
+        // Update visual
+        const screenPos = this.worldToScreen(this.selectedElement.center.x, this.selectedElement.center.y);
+        this.selectedElement.visual.translation.set(screenPos.x, screenPos.y);
+      } else if (this.selectedElement.type === 'rectangle') {
+        this.selectedElement.center.x = this.elementStartPosition.x + deltaX;
+        this.selectedElement.center.y = this.elementStartPosition.y + deltaY;
+        
+        // Update visual
+        const screenPos = this.worldToScreen(this.selectedElement.center.x, this.selectedElement.center.y);
+        this.selectedElement.visual.translation.set(screenPos.x, screenPos.y);
+      } else if (this.selectedElement.type === 'line') {
+        // Move both start and end points
+        this.selectedElement.start.x = this.elementStartPosition.start.x + deltaX;
+        this.selectedElement.start.y = this.elementStartPosition.start.y + deltaY;
+        this.selectedElement.end.x = this.elementStartPosition.end.x + deltaX;
+        this.selectedElement.end.y = this.elementStartPosition.end.y + deltaY;
+        
+        // Update visual
+        const screenStart = this.worldToScreen(this.selectedElement.start.x, this.selectedElement.start.y);
+        const screenEnd = this.worldToScreen(this.selectedElement.end.x, this.selectedElement.end.y);
+        
+        this.selectedElement.visual.vertices[0].x = screenStart.x;
+        this.selectedElement.visual.vertices[0].y = screenStart.y;
+        this.selectedElement.visual.vertices[1].x = screenEnd.x;
+        this.selectedElement.visual.vertices[1].y = screenEnd.y;
+      } else if (this.selectedElement.type === 'text') {
+        this.selectedElement.position.x = this.elementStartPosition.x + deltaX;
+        this.selectedElement.position.y = this.elementStartPosition.y + deltaY;
+        
+        // Update visual
+        const screenPos = this.worldToScreen(this.selectedElement.position.x, this.selectedElement.position.y);
+        this.selectedElement.visual.translation.set(screenPos.x, screenPos.y);
+      }
+      
+      this.two.update();
+      return;
+    }
+    
+    // Handle element resizing
+    if (this.isResizingElement && this.selectedElement && this.resizeHandle && this.resizeStartPoint) {
+      // Calculate resize delta
+      const deltaX = snappedPoint.x - this.resizeStartPoint.x;
+      const deltaY = snappedPoint.y - this.resizeStartPoint.y;
+      
+      if (this.selectedElement.type === 'circle' && this.resizeHandle.id === 'radius') {
+        // Calculate new radius
+        const center = this.selectedElement.center;
+        const dx = snappedPoint.x - center.x;
+        const dy = snappedPoint.y - center.y;
+        const newRadius = Math.sqrt(dx * dx + dy * dy);
+        
+        // Update radius (minimum value 0.5)
+        this.selectedElement.radius = Math.max(0.5, newRadius);
+        
+        // Update visual
+        const screenRadius = this.selectedElement.radius * 10;
+        this.selectedElement.visual.radius = screenRadius;
+      } else if (this.selectedElement.type === 'rectangle') {
+        const center = this.selectedElement.center;
+        let newWidth = this.selectedElement.width;
+        let newHeight = this.selectedElement.height;
+        
+        // Handle different resize handles
+        if (this.resizeHandle.id === 'right') {
+          const dx = snappedPoint.x - center.x;
+          newWidth = Math.max(1, Math.abs(dx) * 2);
+        } else if (this.resizeHandle.id === 'left') {
+          const dx = center.x - snappedPoint.x;
+          newWidth = Math.max(1, Math.abs(dx) * 2);
+        } else if (this.resizeHandle.id === 'top') {
+          const dy = center.y - snappedPoint.y;
+          newHeight = Math.max(1, Math.abs(dy) * 2);
+        } else if (this.resizeHandle.id === 'bottom') {
+          const dy = snappedPoint.y - center.y;
+          newHeight = Math.max(1, Math.abs(dy) * 2);
+        } else if (this.resizeHandle.id.includes('top') && this.resizeHandle.id.includes('right')) {
+          const dx = snappedPoint.x - center.x;
+          const dy = center.y - snappedPoint.y;
+          newWidth = Math.max(1, Math.abs(dx) * 2);
+          newHeight = Math.max(1, Math.abs(dy) * 2);
+        } else if (this.resizeHandle.id.includes('top') && this.resizeHandle.id.includes('left')) {
+          const dx = center.x - snappedPoint.x;
+          const dy = center.y - snappedPoint.y;
+          newWidth = Math.max(1, Math.abs(dx) * 2);
+          newHeight = Math.max(1, Math.abs(dy) * 2);
+        } else if (this.resizeHandle.id.includes('bottom') && this.resizeHandle.id.includes('right')) {
+          const dx = snappedPoint.x - center.x;
+          const dy = snappedPoint.y - center.y;
+          newWidth = Math.max(1, Math.abs(dx) * 2);
+          newHeight = Math.max(1, Math.abs(dy) * 2);
+        } else if (this.resizeHandle.id.includes('bottom') && this.resizeHandle.id.includes('left')) {
+          const dx = center.x - snappedPoint.x;
+          const dy = snappedPoint.y - center.y;
+          newWidth = Math.max(1, Math.abs(dx) * 2);
+          newHeight = Math.max(1, Math.abs(dy) * 2);
+        }
+        
+        // Update width and height
+        this.selectedElement.width = newWidth;
+        this.selectedElement.height = newHeight;
+        
+        // Update visual
+        const screenWidth = newWidth * 10;
+        const screenHeight = newHeight * 10;
+        this.selectedElement.visual.width = screenWidth;
+        this.selectedElement.visual.height = screenHeight;
+      } else if (this.selectedElement.type === 'line') {
+        if (this.resizeHandle.id === 'start') {
+          this.selectedElement.start.x = snappedPoint.x;
+          this.selectedElement.start.y = snappedPoint.y;
+          
+          // Update visual
+          const screenStart = this.worldToScreen(snappedPoint.x, snappedPoint.y);
+          this.selectedElement.visual.vertices[0].x = screenStart.x;
+          this.selectedElement.visual.vertices[0].y = screenStart.y;
+        } else if (this.resizeHandle.id === 'end') {
+          this.selectedElement.end.x = snappedPoint.x;
+          this.selectedElement.end.y = snappedPoint.y;
+          
+          // Update visual
+          const screenEnd = this.worldToScreen(snappedPoint.x, snappedPoint.y);
+          this.selectedElement.visual.vertices[1].x = screenEnd.x;
+          this.selectedElement.visual.vertices[1].y = screenEnd.y;
+        }
+      } else if (this.selectedElement.type === 'text' && this.resizeHandle.id === 'size') {
+        // Calculate distance from position to current point
+        const position = this.selectedElement.position;
+        const dx = snappedPoint.x - position.x;
+        
+        // Update text size based on width
+        // Width in mm = text length * (size in px) * 0.6 / 10
+        // So size in px = width in mm * 10 / (text length * 0.6)
+        const textLength = this.selectedElement.text.length;
+        if (textLength > 0) {
+          const widthInMm = Math.abs(dx) * 2; // Double the distance for full width
+          const newSize = Math.max(8, (widthInMm * 10) / (textLength * 0.6));
+          
+          // Update size (cap at reasonable values)
+          this.selectedElement.size = Math.min(100, Math.round(newSize));
+          
+          // Update visual
+          this.selectedElement.visual.size = this.selectedElement.size;
+          
+          // Also update the text size input
+          const textSizeInput = document.getElementById('cad-text-size');
+          if (textSizeInput) {
+            textSizeInput.value = this.selectedElement.size;
+          }
+        }
+      }
+      
+      this.two.update();
+      return;
+    }
+    
+    // Original mouse move behavior for drawing tools
+    if (!this.isDrawing || !this.tempElement) return;
+    
+    // Code for drawing tools remains the same...
     if (this.currentTool === 'line') {
       // Update line end point
       const screenEnd = this.worldToScreen(snappedPoint.x, snappedPoint.y);
@@ -468,21 +724,19 @@ export class CADDrawer {
       this.tempElement.height = height;
       this.tempElement.translation.set(centerX, centerY);
     } else if (this.currentTool === 'circle') {
-  // Get screen coordinates
-  const screenStart = this.worldToScreen(this.startPoint.x, this.startPoint.y);
-  const screenEnd = this.worldToScreen(snappedPoint.x, snappedPoint.y);
-  
-  // Calculate distance (radius)
-  const dx = screenEnd.x - screenStart.x;
-  const dy = screenEnd.y - screenStart.y;
-  const radius = Math.sqrt(dx * dx + dy * dy);
-  
-  // Update circle radius
-  this.tempElement.radius = radius;
-  
-  // Log for debugging
-  console.log('Circle updated: radius =', radius);
-}
+      // Get screen coordinates
+      const screenStart = this.worldToScreen(this.startPoint.x, this.startPoint.y);
+      const screenEnd = this.worldToScreen(snappedPoint.x, snappedPoint.y);
+      
+      // Calculate distance (radius)
+      const dx = screenEnd.x - screenStart.x;
+      const dy = screenEnd.y - screenStart.y;
+      const radius = Math.sqrt(dx * dx + dy * dy);
+      
+      // Update circle radius
+      this.tempElement.radius = radius;
+    }
+    
     this.two.update();
   }
   
@@ -642,12 +896,67 @@ export class CADDrawer {
     // Convert to world coordinates
     const worldPoint = this.screenToWorld(x, y);
     
-    // Find clicked element
-    this.selectedElement = this.findElementAt(worldPoint);
+    // If we're already in the middle of a drag operation
+    if (this.isDraggingElement && this.selectedElement) {
+      // End dragging
+      this.isDraggingElement = false;
+      this.dragStartPoint = null;
+      
+      // Update status message
+      const statusMessage = document.getElementById('cad-status-message');
+      if (statusMessage) {
+        statusMessage.textContent = `Element moved to X:${this.selectedElement.position ? this.selectedElement.position.x.toFixed(2) : 'N/A'} Y:${this.selectedElement.position ? this.selectedElement.position.y.toFixed(2) : 'N/A'}`;
+      }
+      return;
+    }
     
-    // Update UI based on selection
+    // If we're already in the middle of a resize operation
+    if (this.isResizingElement && this.selectedElement) {
+      // End resizing
+      this.isResizingElement = false;
+      this.resizeStartPoint = null;
+      this.resizeHandle = null;
+      
+      // Update status message
+      const statusMessage = document.getElementById('cad-status-message');
+      if (statusMessage) {
+        statusMessage.textContent = `Element resized`;
+      }
+      return;
+    }
+    
+    // Check if we're clicking on a resize handle of the currently selected element
     if (this.selectedElement) {
-      console.log('Element selected:', this.selectedElement);
+      const handle = this.getResizeHandleAtPoint(worldPoint);
+      if (handle) {
+        this.isResizingElement = true;
+        this.resizeStartPoint = worldPoint;
+        this.resizeHandle = handle;
+        
+        // Update status message
+        const statusMessage = document.getElementById('cad-status-message');
+        if (statusMessage) {
+          statusMessage.textContent = `Resizing ${this.selectedElement.type}...`;
+        }
+        return;
+      }
+    }
+    
+    // Find clicked element
+    const clickedElement = this.findElementAt(worldPoint);
+    
+    // If we clicked on an element
+    if (clickedElement) {
+      // Select the element
+      this.selectedElement = clickedElement;
+      
+      // Start dragging
+      this.isDraggingElement = true;
+      this.dragStartPoint = worldPoint;
+      this.elementStartPosition = this.getElementPosition(clickedElement);
+      
+      // Update UI based on selection
+      console.log('Element selected for dragging:', this.selectedElement);
       
       // Update depth input
       const depthInput = document.getElementById('cad-cut-depth');
@@ -667,9 +976,11 @@ export class CADDrawer {
       // Update status message
       const statusMessage = document.getElementById('cad-status-message');
       if (statusMessage) {
-        statusMessage.textContent = `Selected ${this.selectedElement.type} at depth ${this.selectedElement.depth}mm`;
+        statusMessage.textContent = `Selected ${this.selectedElement.type} - dragging...`;
       }
     } else {
+      // Deselect if clicking on empty space
+      this.selectedElement = null;
       this.updateAllVisuals();
       
       // Update status message
@@ -679,6 +990,96 @@ export class CADDrawer {
       }
     }
   }
+
+  getElementPosition(element) {
+    if (element.type === 'circle') {
+      return { ...element.center };
+    } else if (element.type === 'rectangle') {
+      return { ...element.center };
+    } else if (element.type === 'line') {
+      return {
+        start: { ...element.start },
+        end: { ...element.end }
+      };
+    } else if (element.type === 'text') {
+      return { ...element.position };
+    }
+    return null;
+  }
+
+  getResizeHandleAtPoint(point) {
+    if (!this.selectedElement) return null;
+    
+    // Define handle positions based on element type
+    let handles = [];
+    
+    if (this.selectedElement.type === 'circle') {
+      const center = this.selectedElement.center;
+      const radius = this.selectedElement.radius;
+      
+      // Add a handle at the edge of the circle (east point)
+      handles.push({
+        x: center.x + radius,
+        y: center.y,
+        id: 'radius'
+      });
+    } else if (this.selectedElement.type === 'rectangle') {
+      const center = this.selectedElement.center;
+      const halfWidth = this.selectedElement.width / 2;
+      const halfHeight = this.selectedElement.height / 2;
+      
+      // Add handles at the corners and sides
+      handles = [
+        { x: center.x - halfWidth, y: center.y - halfHeight, id: 'top-left' },
+        { x: center.x + halfWidth, y: center.y - halfHeight, id: 'top-right' },
+        { x: center.x - halfWidth, y: center.y + halfHeight, id: 'bottom-left' },
+        { x: center.x + halfWidth, y: center.y + halfHeight, id: 'bottom-right' },
+        { x: center.x, y: center.y - halfHeight, id: 'top' },
+        { x: center.x, y: center.y + halfHeight, id: 'bottom' },
+        { x: center.x - halfWidth, y: center.y, id: 'left' },
+        { x: center.x + halfWidth, y: center.y, id: 'right' }
+      ];
+    } else if (this.selectedElement.type === 'line') {
+      // Add handles at the endpoints
+      handles = [
+        { ...this.selectedElement.start, id: 'start' },
+        { ...this.selectedElement.end, id: 'end' }
+      ];
+    } else if (this.selectedElement.type === 'text') {
+      // For text, allow resizing by dragging the right side
+      const position = this.selectedElement.position;
+      const width = (this.selectedElement.text.length * (this.selectedElement.size || 20) * 0.6) / 10;
+      
+      handles.push({
+        x: position.x + width/2,
+        y: position.y,
+        id: 'size'
+      });
+    }
+    
+    // Check if point is near any handle
+    // Increased tolerance to make handles easier to grab
+    const tolerance = 1.0; // 1 grid unit tolerance (increased from 0.5)
+    console.log('Checking for handle near', point.x, point.y, 'with tolerance', tolerance);
+    
+    for (const handle of handles) {
+      const dx = point.x - handle.x;
+      const dy = point.y - handle.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      console.log('Handle', handle.id, 'at', handle.x, handle.y, 'distance:', distance);
+      
+      if (distance <= tolerance) {
+        console.log('Found handle:', handle.id);
+        return handle;
+      }
+    }
+    
+    console.log('No handle found');
+    return null;
+  }
+  
+  
 
   previewCircles() {
     // Extract all circles from the elements array
@@ -834,51 +1235,58 @@ export class CADDrawer {
     return perpDistance <= tolerance;
   }
   
-  updateElementVisual(element) {
-    if (!element || !element.visual) return;
-    
-    // Update visual properties based on operation type and depth
-    element.visual.noFill();
-    
-    // Determine stroke based on operation type
-    switch (element.operation) {
-      case 'profile':
-        element.visual.stroke = '#e74c3c'; // Red
-        element.visual.dashes = []; // Solid line
-        break;
-      case 'pocket':
-        element.visual.stroke = '#3498db'; // Blue
-        element.visual.dashes = [5, 3]; // Dashed line
-        break;
-      case 'drill':
-        element.visual.stroke = '#2ecc71'; // Green
-        element.visual.dashes = [2, 2]; // Dotted line
-        break;
-      default:
-        element.visual.stroke = '#2c3e50'; // Dark blue
-        break;
-    }
-    
-    // Adjust line width based on depth - deeper cuts get thicker lines
-    // Scale from 1 to 4 based on depth from 0 to -10mm
-    const depthFactor = Math.min(Math.abs(element.depth) / 5, 1);
-    const lineWidth = 1 + (depthFactor * 3);
-    element.visual.linewidth = lineWidth;
-    
-    // Highlight if selected
-    if (this.selectedElement === element) {
-      element.visual.stroke = '#f39c12'; // Orange for selected element
-      element.visual.linewidth += 1;
-    }
-    
-    this.two.update();
+updateElementVisual(element) {
+  if (!element || !element.visual) return;
+  
+  // Existing code for visual update...
+  element.visual.noFill();
+  
+  // Determine stroke based on operation type
+  switch (element.operation) {
+    case 'profile':
+      element.visual.stroke = '#e74c3c'; // Red
+      element.visual.dashes = []; // Solid line
+      break;
+    case 'pocket':
+      element.visual.stroke = '#3498db'; // Blue
+      element.visual.dashes = [5, 3]; // Dashed line
+      break;
+    case 'drill':
+      element.visual.stroke = '#2ecc71'; // Green
+      element.visual.dashes = [2, 2]; // Dotted line
+      break;
+    default:
+      element.visual.stroke = '#2c3e50'; // Dark blue
+      break;
   }
   
-  updateAllVisuals() {
-    this.elements.forEach(element => {
-      this.updateElementVisual(element);
-    });
+  const depthFactor = Math.min(Math.abs(element.depth) / 5, 1);
+  const lineWidth = 1 + (depthFactor * 3);
+  element.visual.linewidth = lineWidth;
+  
+  // Highlight if selected
+  if (this.selectedElement === element) {
+    element.visual.stroke = '#f39c12'; // Orange for selected element
+    element.visual.linewidth += 1;
+    
+    // Draw resize handles when element is selected
+    this.drawResizeHandles();
   }
+  
+  this.two.update();
+}
+  
+updateAllVisuals() {
+  // Remove any existing resize handles
+  if (this.resizeHandlesGroup) {
+    this.two.remove(this.resizeHandlesGroup);
+    this.resizeHandlesGroup = null;
+  }
+  
+  this.elements.forEach(element => {
+    this.updateElementVisual(element);
+  });
+}
   
   clearDrawing() {
     // Remove all elements from the drawing group
@@ -1036,35 +1444,103 @@ generate25DGCode(elements) {
     gcode.push(`; Depth: ${element.depth} mm`);
     
     if (element.type === 'text') {
+      gcode.push(`; Operation ${i+1}: ${element.operation.toUpperCase()} - TEXT OUTLINE`);
       gcode.push(`; Text: "${element.text}"`);
       gcode.push(`; Position: X${element.position.x.toFixed(3)}, Y${element.position.y.toFixed(3)}`);
+      gcode.push(`; Depth: ${element.depth} mm`);
       
-      // Move to text position
-      gcode.push(`G0 X${element.position.x} Y${element.position.y} ; Move to text position`);
-      gcode.push(`G1 Z${element.depth} F${plungeRate} ; Lower to engraving depth`);
-    
-      // Calculate approximate text width based on characters
-      const charWidth = (element.size || 20) * 0.6 / 10; // Convert pixel size to mm 
-      const textWidth = element.text.length * charWidth;
-      const textHeight = (element.size || 20) / 10; // Convert pixel size to mm
+      // Calculate text metrics
+      const charWidth = (element.size || 20) * 0.6 / 10; // Convert pixel size to mm
+      const charHeight = (element.size || 20) / 10; // Convert pixel size to mm
+      const spacing = charWidth * 0.2; // Space between characters
       
-      // For simple text engraving, create a zigzag pattern that roughly covers the text area
-      const zigzagSteps = Math.max(3, Math.floor(textHeight / 1.5));
-      const stepSize = textHeight / zigzagSteps;
+      // Generate G-code for each character (as outlines)
+      let xOffset = 0;
       
-      for (let step = 0; step < zigzagSteps; step++) {
-        const yOffset = (step * stepSize) - (textHeight / 2);
+      for (let charIndex = 0; charIndex < element.text.length; charIndex++) {
+        const char = element.text[charIndex];
         
-        if (step % 2 === 0) {
-          // Left to right
-          gcode.push(`G1 X${element.position.x + textWidth} Y${element.position.y + yOffset} F${feedRate} ; Text row`);
-        } else {
-          // Right to left
-          gcode.push(`G1 X${element.position.x} Y${element.position.y + yOffset} F${feedRate} ; Text row`);
+        // Skip spaces
+        if (char === ' ') {
+          xOffset += charWidth;
+          continue;
         }
+        
+        // Calculate character position (center of character)
+        const charPosition = {
+          x: element.position.x - ((element.text.length * (charWidth + spacing)) / 2) + xOffset + (charWidth / 2),
+          y: element.position.y
+        };
+        
+        gcode.push(`; Character: ${char}`);
+        
+        // Generate an approximated outline for each character
+        // Move to starting point at safe height
+        gcode.push(`G0 Z${safeZ} ; Raise to safe height`);
+        
+        // Begin character outline
+        // We'll create a simple rectangular outline with rounded corners for each character
+        
+        // Plunge to cutting depth
+        gcode.push(`G0 X${charPosition.x - charWidth/2} Y${charPosition.y - charHeight/2} ; Move to bottom-left of character`);
+        gcode.push(`G1 Z${element.depth} F${plungeRate} ; Plunge to cutting depth`);
+        
+        // Define corner radius
+        const cornerRadius = Math.min(charWidth, charHeight) * 0.2;
+        const arcSteps = 8; // Number of segments for rounded corners
+        
+        // Bottom edge with rounded corners
+        gcode.push(`G1 X${charPosition.x + charWidth/2 - cornerRadius} Y${charPosition.y - charHeight/2} F${feedRate} ; Bottom edge`);
+        
+        // Bottom-right corner (arc)
+        for (let step = 0; step < arcSteps; step++) {
+          const angle = Math.PI / 2 * (step / arcSteps);
+          const x = charPosition.x + charWidth/2 - cornerRadius + cornerRadius * Math.cos(angle);
+          const y = charPosition.y - charHeight/2 + cornerRadius - cornerRadius * Math.sin(angle);
+          gcode.push(`G1 X${x.toFixed(3)} Y${y.toFixed(3)} F${feedRate} ; Bottom-right corner arc`);
+        }
+        
+        // Right edge
+        gcode.push(`G1 X${charPosition.x + charWidth/2} Y${charPosition.y + charHeight/2 - cornerRadius} F${feedRate} ; Right edge`);
+        
+        // Top-right corner (arc)
+        for (let step = 0; step < arcSteps; step++) {
+          const angle = Math.PI / 2 * (step / arcSteps) + Math.PI / 2;
+          const x = charPosition.x + charWidth/2 - cornerRadius + cornerRadius * Math.cos(angle);
+          const y = charPosition.y + charHeight/2 - cornerRadius + cornerRadius * Math.sin(angle);
+          gcode.push(`G1 X${x.toFixed(3)} Y${y.toFixed(3)} F${feedRate} ; Top-right corner arc`);
+        }
+        
+        // Top edge
+        gcode.push(`G1 X${charPosition.x - charWidth/2 + cornerRadius} Y${charPosition.y + charHeight/2} F${feedRate} ; Top edge`);
+        
+        // Top-left corner (arc)
+        for (let step = 0; step < arcSteps; step++) {
+          const angle = Math.PI / 2 * (step / arcSteps) + Math.PI;
+          const x = charPosition.x - charWidth/2 + cornerRadius + cornerRadius * Math.cos(angle);
+          const y = charPosition.y + charHeight/2 - cornerRadius + cornerRadius * Math.sin(angle);
+          gcode.push(`G1 X${x.toFixed(3)} Y${y.toFixed(3)} F${feedRate} ; Top-left corner arc`);
+        }
+        
+        // Left edge
+        gcode.push(`G1 X${charPosition.x - charWidth/2} Y${charPosition.y - charHeight/2 + cornerRadius} F${feedRate} ; Left edge`);
+        
+        // Bottom-left corner (arc)
+        for (let step = 0; step < arcSteps; step++) {
+          const angle = Math.PI / 2 * (step / arcSteps) + 3 * Math.PI / 2;
+          const x = charPosition.x - charWidth/2 + cornerRadius + cornerRadius * Math.cos(angle);
+          const y = charPosition.y - charHeight/2 + cornerRadius + cornerRadius * Math.sin(angle);
+          gcode.push(`G1 X${x.toFixed(3)} Y${y.toFixed(3)} F${feedRate} ; Bottom-left corner arc`);
+        }
+        
+        // Close the outline by returning to the starting point
+        gcode.push(`G1 X${charPosition.x - charWidth/2} Y${charPosition.y - charHeight/2} F${feedRate} ; Close outline`);
+        
+        // Update offset for next character
+        xOffset += charWidth + spacing;
       }
       
-      // Return to safe height
+      // Return to safe height after completing all characters
       gcode.push(`G0 Z${safeZ} ; Retract to safe height`);
     }
     else if (element.operation === 'drill') {
