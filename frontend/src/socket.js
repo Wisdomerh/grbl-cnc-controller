@@ -307,13 +307,31 @@ function handleSocketMessage(event) {
         }
         break;
 
-      case 'console_message':
-        // Skip status reports and ok messages
-        if (message.message && (message.message.startsWith('<') || message.message === 'ok')) {
-          return;
-        }
-        appStateRef.addConsoleMessage(message.direction, message.message);
-        break;
+        case 'console_message':
+          // Skip status reports and ok messages
+          if (message.message && (message.message.startsWith('<') || message.message === 'ok')) {
+            return;
+          }
+          
+          // Special handling for received G-code commands
+          if (message.direction === 'received') {
+            // Find the status element
+            const statusElement = document.getElementById('line-execution-status');
+            if (statusElement) {
+              // Extract line numbers from status if available
+              const match = /line (\d+)\/(\d+)/.exec(statusElement.textContent);
+              if (match) {
+                const currentLine = parseInt(match[1]);
+                const totalLines = parseInt(match[2]);
+                
+                // Update with actual executed command
+                statusElement.textContent = `Executed ${currentLine}/${totalLines}: ${message.message}`;
+              }
+            }
+          }
+          
+          appStateRef.addConsoleMessage(message.direction, message.message);
+          break;
 
       case 'error':
         appStateRef.addConsoleMessage('error', message.message);

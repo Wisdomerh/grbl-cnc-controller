@@ -203,61 +203,63 @@ class GRBLSerialManager:
             self.callbacks[event] = callback
     
     def send_command(self, command, priority=False):
-    if not self.is_connected():
-        logger.error("Cannot send command: Not connected")
-        return False
-        
-    # Skip empty commands and comments
-    if not command or command.strip() == '' or command.startswith(';') or command.startswith('('):
-        return True
-    
-    # For immediate commands, bypass the wait for "ok"
-    if priority:
-        try:
-            self.serial_port.write((command + '\n').encode())
-            logger.debug(f"Sent priority command: {command}")
-            return True
-        except Exception as e:
-            logger.error(f"Error sending priority command: {str(e)}")
+        """Send a G-code command to the GRBL device."""
+        if not self.is_connected:
+            logger.error("Cannot send command: Not connected")
             return False
-    
-    # For regular commands, wait for "ok" response
-    try:
-        logger.debug(f"Sending command: {command}")
-        self.serial_port.write((command + '\n').encode())
-        
-        # Wait for "ok" or "error" response
-        response_timeout = 5.0  # 5 second timeout
-        start_time = time.time()
-        
-        while time.time() - start_time < response_timeout:
-            if self.serial_port.in_waiting > 0:
-                try:
-                    line = self.serial_port.readline().decode('utf-8').strip()
-                    
-                    # Process the response
-                    if line == "ok":
-                        return True
-                    elif line.startswith("error"):
-                        logger.error(f"Error response: {line} for command: {command}")
-                        self._on_error_callback(f"GRBL Error: {line} for command: {command}")
-                        return False
-                    else:
-                        # Process other responses like status reports
-                        self._process_response(line)
-                except UnicodeDecodeError:
-                    continue
-            
-            # Small sleep to prevent CPU hogging
-            time.sleep(0.001)
-        
-        # If we reach here, we timed out waiting for a response
-        logger.error(f"Timeout waiting for response to: {command}")
-        return False
-        
-    except Exception as e:
-        logger.error(f"Error sending command: {str(e)}")
-        return False
+
+        # Skip empty commands and comments
+        if not command or command.strip() == '' or command.startswith(';') or command.startswith('('):
+            return True
+
+        # For immediate commands, bypass the wait for "ok"
+        if priority:
+            try:
+                self.serial_port.write((command + '\n').encode())
+                logger.debug(f"Sent priority command: {command}")
+                return True
+            except Exception as e:
+                logger.error(f"Error sending priority command: {str(e)}")
+                return False
+
+        # For regular commands, wait for "ok" response
+        try:
+            logger.debug(f"Sending command: {command}")
+            self.serial_port.write((command + '\n').encode())
+
+            # Wait for "ok" or "error" response
+            response_timeout = 5.0  # 5-second timeout
+            start_time = time.time()
+
+            while time.time() - start_time < response_timeout:
+                if self.serial_port.in_waiting > 0:
+                    try:
+                        line = self.serial_port.readline().decode('utf-8').strip()
+
+                        # Process the response
+                        if line == "ok":
+                            return True
+                        elif line.startswith("error"):
+                            logger.error(f"Error response: {line} for command: {command}")
+                            if self.callbacks['on_error']:
+                                self.callbacks['on_error'](f"GRBL Error: {line} for command: {command}")
+                            return False
+                        else:
+                            # Process other responses like status reports
+                            self._process_response(line)
+                    except UnicodeDecodeError:
+                        continue
+
+                # Small sleep to prevent CPU hogging
+                time.sleep(0.001)
+
+            # If we reach here, we timed out waiting for a response
+            logger.error(f"Timeout waiting for response to: {command}")
+            return False
+
+        except Exception as e:
+            logger.error(f"Error sending command: {str(e)}")
+            return False
     
     def _command_sender(self):
         """Thread function to send commands from the queue with retry logic"""

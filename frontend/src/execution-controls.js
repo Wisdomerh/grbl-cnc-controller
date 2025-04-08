@@ -47,7 +47,6 @@ export function initExecutionControls(appState) {
       }
       
       // Explicitly update UI state BEFORE sending the command
-      // This ensures the buttons show the correct state immediately
       runGcodeBtn.disabled = true;
       pauseResumeBtn.disabled = false;
       stopGcodeBtn.disabled = false;
@@ -62,17 +61,8 @@ export function initExecutionControls(appState) {
       // Create or update job status display
       updateJobStatusDisplay('running', appState);
       
-      // Send to machine with program mode flag
-      const socket = getSocket();
-      if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({
-          command: 'send_gcode',
-          gcode: lines,
-          mode: 'program'  // This is crucial
-        }));
-        
-        appState.addConsoleMessage('system', `Running G-code program with ${lines.length} commands...`);
-      }
+      // Send lines one by one with similar timing to backend
+      runLineByLine(lines, appState);
     });
     
     // Pause/Resume button
@@ -186,6 +176,100 @@ export function initExecutionControls(appState) {
         }, 1000); // Wait 1 second after stop
       }
     });
+    
+
+    function runLineByLine(lines, appState) {
+      const socket = getSocket();
+      if (!socket || socket.readyState !== WebSocket.OPEN) {
+        appState.addConsoleMessage('error', 'Not connected to server');
+        return;
+      }
+      
+      // First, send the entire program to the backend with 'program' mode
+      // This allows the backend to manage the execution properly
+      socket.send(JSON.stringify({
+        command: 'send_gcode',
+        gcode: lines,
+        mode: 'program'
+      }));
+      
+      appState.addConsoleMessage('system', `Starting G-code program with ${lines.length} commands...`);
+      
+      // Set up a counter for line processing
+      let lineIndex = 0;
+      
+      // Create a status display element or use an existing one
+      let statusElement = document.getElementById('line-execution-status');
+      if (!statusElement) {
+        statusElement = document.createElement('div');
+        statusElement.id = 'line-execution-status';
+        statusElement.className = 'execution-status';
+        const consoleElement = document.getElementById('console');
+        if (consoleElement) {
+          consoleElement.parentElement.insertBefore(statusElement, consoleElement);
+        }
+      }
+      
+      // Show the initial status
+      statusElement.textContent = `Executing line 1/${lines.length}`;
+      
+      // Function to process the next line
+      function processNextLine() {
+        if (lineIndex >= lines.length) {
+          // All lines processed
+          statusElement.textContent = `Execution complete: ${lines.length}/${lines.length} lines`;
+          return;
+        }
+        
+        // Skip empty lines and comments
+        while (lineIndex < lines.length && 
+               (!lines[lineIndex] || 
+                lines[lineIndex].startsWith(';') || 
+                lines[lineIndex].startsWith('('))) {
+          lineIndex++;
+        }
+        
+        if (lineIndex >= lines.length) {
+          // All lines processed after skipping comments
+          statusElement.textContent = `Execution complete: ${lines.length}/${lines.length} lines`;
+          return;
+        }
+        
+        const line = lines[lineIndex];
+        
+        // Show the current line in the console
+        appState.addConsoleMessage('sent', line);
+        
+        // Update status display
+        statusElement.textContent = `Executing line ${lineIndex + 1}/${lines.length}`;
+        
+        // Determine delay based on command complexity
+        let delay = 100; // Default delay in milliseconds
+        
+        // Increase delay for more complex commands
+        if (line.includes('G2') || line.includes('G3')) {
+          // Arc movements need more time
+          delay = 250;
+        } else if (line.includes('G0') || line.includes('G1')) {
+          // Linear movements
+          delay = 150;
+        } else if (line.startsWith('G4')) {
+          // For dwell commands, parse the dwell time
+          const match = /P(\d+(\.\d+)?)/.exec(line);
+          if (match) {
+            // P value is in seconds, convert to ms and add a small buffer
+            delay = parseFloat(match[1]) * 1000 + 50;
+          }
+        }
+        
+        // Process the next line after the calculated delay
+        lineIndex++;
+        setTimeout(processNextLine, delay);
+      }
+      
+      // Start processing the first line
+      processNextLine();
+    }
     
     // Emergency Stop button
     emergencyStopBtn.addEventListener('click', () => {
