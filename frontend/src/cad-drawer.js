@@ -370,23 +370,35 @@ export class CADDrawer {
           gcode.push(`G0 X${path[0].x} Y${path[0].y} ; Move to start point`);
           gcode.push(`G1 Z${currentDepth} F${plungeRate} ; Plunge to cutting depth`);
           
-          // Follow the path
+          // Follow the path, but convert arcs to line segments for better reliability
+          let prevPoint = path[0];
+          
           for (let i = 1; i < path.length; i++) {
             const point = path[i];
+            
             if (point.type === 'line') {
               gcode.push(`G1 X${point.x} Y${point.y} F${feedRate} ; Line`);
             } else if (point.type === 'arc') {
-              // For arcs, use G2/G3 commands with I,J parameters
-              const prev = path[i-1];
-              const centerX = point.centerX;
-              const centerY = point.centerY;
-              const dx = centerX - prev.x;
-              const dy = centerY - prev.y;
-              const cmd = point.clockwise ? 'G2' : 'G3';
-              gcode.push(`${cmd} X${point.x} Y${point.y} I${dx.toFixed(4)} J${dy.toFixed(4)} F${feedRate} ; Arc`);
+              // Convert arc to line segments for better reliability
+              const arcSegments = this.arcToLines(
+                prevPoint.x, prevPoint.y, 
+                point.x, point.y, 
+                point.centerX, point.centerY, 
+                point.clockwise,
+                12  // Use 12 segments per arc for smoother curves
+              );
+              
+              arcSegments.forEach(segment => {
+                gcode.push(`G1 X${segment.x.toFixed(4)} Y${segment.y.toFixed(4)} F${feedRate} ; Arc segment`);
+              });
             }
+            
+            prevPoint = point;
           }
         }
+        
+        // Add a dwell after each character to let the controller catch up
+        gcode.push(`G4 P0.1 ; Dwell for 0.1 seconds`);
         
         // Advance to next character position
         xPos += width + spacing;
@@ -397,6 +409,50 @@ export class CADDrawer {
     gcode.push(`G0 Z${safeZ} ; Return to safe height`);
     
     return gcode;
+  }
+  
+  // Add this helper method to convert arcs to line segments
+  arcToLines(startX, startY, endX, endY, centerX, centerY, isClockwise, segmentCount = 12) {
+    const segments = [];
+    
+    // Calculate radius based on the distance from start to center
+    const dx1 = startX - centerX;
+    const dy1 = startY - centerY;
+    const radius = Math.sqrt(dx1*dx1 + dy1*dy1);
+    
+    // Calculate start and end angles
+    const startAngle = Math.atan2(startY - centerY, startX - centerX);
+    const endAngle = Math.atan2(endY - centerY, endX - centerX);
+    
+    // Adjust end angle for proper arc direction
+    let totalAngle;
+    if (isClockwise) {
+      totalAngle = (startAngle <= endAngle) ? (startAngle - endAngle) : (startAngle - endAngle);
+    } else {
+      totalAngle = (endAngle >= startAngle) ? (endAngle - startAngle) : (2 * Math.PI + endAngle - startAngle);
+    }
+    
+    // Ensure positive angle
+    if (totalAngle < 0) totalAngle += 2 * Math.PI;
+    
+    // Generate segments
+    for (let i = 1; i <= segmentCount; i++) {
+      const fraction = i / segmentCount;
+      let angle;
+      
+      if (isClockwise) {
+        angle = startAngle - (totalAngle * fraction);
+      } else {
+        angle = startAngle + (totalAngle * fraction);
+      }
+      
+      const x = centerX + radius * Math.cos(angle);
+      const y = centerY + radius * Math.sin(angle);
+      
+      segments.push({ x, y });
+    }
+    
+    return segments;
   }
 
   getCharacterPath(char, centerX, centerY, width, height) {

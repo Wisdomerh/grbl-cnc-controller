@@ -524,6 +524,47 @@ class App {
     } catch (error) {
       console.error('Error initializing modules:', error);
     }
+    try {
+      if (window.require) {
+        const { remote } = window.require('electron');
+        const process = remote.process;
+        if (process && process.getProcessId) {
+          console.log('Setting high process priority');
+          process.processPriority = 'high';
+        }
+      }
+    } catch (error) {
+      console.warn('Could not set process priority:', error);
+    }
+    
+    // Configure serial port options with optimal settings
+    const serialConfigureButton = document.createElement('button');
+    serialConfigureButton.id = 'configure-serial-btn';
+    serialConfigureButton.innerHTML = '<i class="fas fa-cog"></i>&nbsp; Optimize Serial';
+    serialConfigureButton.className = 'btn-secondary';
+    serialConfigureButton.addEventListener('click', () => {
+      // Request optimal serial settings
+      const socket = getSocket();
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+          command: 'configure_serial',
+          settings: {
+            baudRate: 115200,
+            dataBits: 8,
+            stopBits: 1,
+            parity: 'none',
+            flowControl: true,  // Enable RTS/CTS flow control
+            bufferSize: 127     // Match GRBL's buffer size
+          }
+        }));
+        this.addConsoleMessage('system', 'Applied optimal serial port settings');
+      }
+    });
+    
+    const connectionPanel = document.querySelector('.connection-panel');
+    if (connectionPanel) {
+      connectionPanel.appendChild(serialConfigureButton);
+    }
   }
   
   // Set up tab navigation
