@@ -203,45 +203,61 @@ class GRBLSerialManager:
             self.callbacks[event] = callback
     
     def send_command(self, command, priority=False):
-        """Send a command to GRBL with priority handling"""
-        if not self.is_connected:
-            error_msg = "Cannot send command: Not connected to GRBL device"
-            logger.error(error_msg)
-            if self.callbacks['on_error']:
-                self.callbacks['on_error'](error_msg)
-            return False
+    if not self.is_connected():
+        logger.error("Cannot send command: Not connected")
+        return False
         
+    # Skip empty commands and comments
+    if not command or command.strip() == '' or command.startswith(';') or command.startswith('('):
+        return True
+    
+    # For immediate commands, bypass the wait for "ok"
+    if priority:
         try:
-            # Prioritize zero commands
-            is_zero_command = "G10 L20 P1" in command
-            
-            # Use highest priority for zero and homing commands
-            if is_zero_command or priority:
-                with self.queue_lock:
-                    while not self.command_queue.empty():
-                        self.command_queue.get()
-                    
-                    # Add the command to the now-empty queue
-                    self.command_queue.put((command, 0))
-                
-                # For zeroing commands, send an immediate WCO query after
-                if is_zero_command:
-                    # Small delay to ensure zeroing completes
-                    time.sleep(0.1)
-                    self.send_immediate_command('$#', log=False)  # Get updated work coordinate offsets
-                    self.send_immediate_command('?', log=False)   # Get updated position
-                    logger.info(f"Sent zeroing command: {command}")
-            else:
-                # Normal priority command
-                self.command_queue.put((command, 0))
-            
+            self.serial_port.write((command + '\n').encode())
+            logger.debug(f"Sent priority command: {command}")
             return True
         except Exception as e:
-            error_msg = f"Error sending command: {str(e)}"
-            logger.error(error_msg)
-            if self.callbacks['on_error']:
-                self.callbacks['on_error'](error_msg)
+            logger.error(f"Error sending priority command: {str(e)}")
             return False
+    
+    # For regular commands, wait for "ok" response
+    try:
+        logger.debug(f"Sending command: {command}")
+        self.serial_port.write((command + '\n').encode())
+        
+        # Wait for "ok" or "error" response
+        response_timeout = 5.0  # 5 second timeout
+        start_time = time.time()
+        
+        while time.time() - start_time < response_timeout:
+            if self.serial_port.in_waiting > 0:
+                try:
+                    line = self.serial_port.readline().decode('utf-8').strip()
+                    
+                    # Process the response
+                    if line == "ok":
+                        return True
+                    elif line.startswith("error"):
+                        logger.error(f"Error response: {line} for command: {command}")
+                        self._on_error_callback(f"GRBL Error: {line} for command: {command}")
+                        return False
+                    else:
+                        # Process other responses like status reports
+                        self._process_response(line)
+                except UnicodeDecodeError:
+                    continue
+            
+            # Small sleep to prevent CPU hogging
+            time.sleep(0.001)
+        
+        # If we reach here, we timed out waiting for a response
+        logger.error(f"Timeout waiting for response to: {command}")
+        return False
+        
+    except Exception as e:
+        logger.error(f"Error sending command: {str(e)}")
+        return False
     
     def _command_sender(self):
         """Thread function to send commands from the queue with retry logic"""

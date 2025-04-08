@@ -39,7 +39,7 @@ class WebSocketServer:
         # Create thread pools for parallel processing
         num_cores = multiprocessing.cpu_count()
         logger.info(f"System has {num_cores} CPU cores available")
-        self.thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=num_cores // 2)
+        self.thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=14)
         
         # Register serial manager callbacks
         self.serial_manager.register_callback('on_state_change', self._on_state_change)
@@ -697,86 +697,120 @@ class WebSocketServer:
         return True
 
     def _execute_job(self):
-        """Execute G-code job in a separate thread with improved reliability"""
-        try:
-            # Send immediate status update to confirm job is running
-            if self.job_state != 'running':
-                self.job_state = 'running'
+    """Execute G-code job in a separate thread with improved reliability"""
+    try:
+        # Increase this thread's priority if possible
+        self.set_thread_priority()
+        
+        # Send immediate status update to confirm job is running
+        if self.job_state != 'running':
+            self.job_state = 'running'
+        
+        self._broadcast_job_status("Job starting")
+        
+        # Initialize adaptive timing
+        command_delay = 0.02  # Initial delay between commands
+        last_response_time = 0
+        
+        # Main job execution loop
+        while self.job_position < self.job_total and not self.job_stop.is_set():
+            # Check if paused - this will block if we're paused
+            if not self.job_paused.is_set():
+                # Brief sleep while paused to prevent CPU spinning
+                time.sleep(0.1)
+                continue
             
-            self._broadcast_job_status("Job starting")
+            # Stop if requested
+            if self.job_stop.is_set():
+                break
             
-            # Small delay to ensure UI gets updated
-            time.sleep(0.1)
-            
-            # Main job execution loop
-            while self.job_position < self.job_total and not self.job_stop.is_set():
-                # Check if paused - this will block if we're paused
-                if not self.job_paused.is_set():
-                    # Brief sleep while paused to prevent CPU spinning
-                    time.sleep(0.1)
+            try:
+                # Get next command
+                command = self.job_buffer[self.job_position]
+                
+                # Skip empty commands and comments
+                if not command or command.strip() == '' or command.startswith('(') or command.startswith(';'):
+                    self.job_position += 1
                     continue
                 
-                # Stop if requested
-                if self.job_stop.is_set():
-                    break
+                # Send command to GRBL
+                start_time = time.time()
+                success = self.serial_manager.send_command(command)
+                response_time = time.time() - start_time
                 
-                try:
-                    # Get next command
-                    command = self.job_buffer[self.job_position]
-                    
-                    # Skip empty commands and comments
-                    if not command or command.startswith('(') or command.startswith(';'):
-                        self.job_position += 1
-                        continue
-                    
-                    # Send command to GRBL
-                    success = self.serial_manager.send_command(command)
-                    
-                    if not success:
-                        logger.error(f"Failed to send command: {command}")
-                        
-                        # Update job state and broadcast error
-                        self.job_state = 'error'
-                        self._broadcast_job_status(f"Error sending command: {command}")
-                        break
-                    
-                    # Wait briefly before sending next command
-                    # This simulates waiting for an OK without blocking for too long
-                    time.sleep(0.05)
-                    
-                    # Increment position
-                    self.job_position += 1
-                    
-                    # Broadcast status update periodically
-                    if self.job_position % 5 == 0 or self.job_position == self.job_total:
-                        self._broadcast_job_status()
-                
-                except Exception as e:
-                    logger.error(f"Error executing command: {str(e)}")
+                if not success:
+                    logger.error(f"Failed to send command: {command}")
                     
                     # Update job state and broadcast error
                     self.job_state = 'error'
-                    self._broadcast_job_status(f"Error in job execution: {str(e)}")
+                    self._broadcast_job_status(f"Error sending command: {command}")
                     break
-            
-            # Job completed or stopped
-            if not self.job_stop.is_set() and self.job_position >= self.job_total:
-                self.job_state = 'idle'
-                logger.info("G-code job completed successfully")
-            elif self.job_stop.is_set():
-                self.job_state = 'idle'
-                logger.info("G-code job stopped")
                 
-            # Final status update
-            self._broadcast_job_status("Job complete" if self.job_position >= self.job_total else "Job stopped")
+                # Adaptive timing: adjust delay based on response time
+                if response_time < 0.01:  # Very fast response
+                    command_delay = max(0.01, command_delay * 0.95)  # Slightly reduce delay
+                elif response_time > 0.1:  # Slow response
+                    command_delay = min(0.5, command_delay * 1.05)  # Slightly increase delay
                 
-        except Exception as e:
-            # Job error
-            self.job_state = 'error'
-            logger.error(f"Error in G-code job execution: {str(e)}")
+                # Wait the calculated delay before next command
+                time.sleep(command_delay)
+                
+                # Store last response time for tracking
+                last_response_time = response_time
+                
+                # Add extra delay after complex operations (G2/G3 arcs)
+                if 'G2' in command or 'G3' in command:
+                    time.sleep(0.1)  # Extra delay for arcs
+                
+                # Increment position
+                self.job_position += 1
+                
+                # Broadcast status update periodically
+                if self.job_position % 5 == 0 or self.job_position == self.job_total:
+                    self._broadcast_job_status()
             
-            # Broadcast error
-            self._broadcast_job_status(f"Error in job execution: {str(e)}")
+            except Exception as e:
+                logger.error(f"Error executing command: {str(e)}")
+                
+                # Update job state and broadcast error
+                self.job_state = 'error'
+                self._broadcast_job_status(f"Error in job execution: {str(e)}")
+                break
+        
+        # Job completed or stopped
+        if not self.job_stop.is_set() and self.job_position >= self.job_total:
+            self.job_state = 'idle'
+            logger.info("G-code job completed successfully")
+        elif self.job_stop.is_set():
+            self.job_state = 'idle'
+            logger.info("G-code job stopped")
+            
+        # Final status update
+        self._broadcast_job_status("Job complete" if self.job_position >= self.job_total else "Job stopped")
+            
+    except Exception as e:
+        # Job error
+        self.job_state = 'error'
+        logger.error(f"Error in G-code job execution: {str(e)}")
+        
+        # Broadcast error
+        self._broadcast_job_status(f"Error in job execution: {str(e)}")
+
+    def set_thread_priority(self):
+        """Set the current thread to high priority if possible."""
+        try:
+            import os
+            os.nice(-10)  # Increase priority (Linux/macOS)
+            logger.info("Set thread priority to high (Linux/macOS)")
+        except (ImportError, OSError, AttributeError):
+            try:
+                import psutil
+                import threading
+                p = psutil.Process()
+                p.nice(psutil.HIGH_PRIORITY_CLASS)  # Windows
+                logger.info("Set thread priority to high (Windows)")
+            except (ImportError, AttributeError):
+                logger.warning("Could not set thread priority (unsupported platform)")
 
     def _broadcast_job_status(self, message=None):
         """Broadcast job status to all clients"""
