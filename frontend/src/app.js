@@ -537,7 +537,6 @@ class App {
       console.warn('Could not set process priority:', error);
     }
     
-    // Configure serial port options with optimal settings
     const serialConfigureButton = document.createElement('button');
     serialConfigureButton.id = 'configure-serial-btn';
     serialConfigureButton.innerHTML = '<i class="fas fa-cog"></i>&nbsp; Optimize Serial';
@@ -557,7 +556,9 @@ class App {
             bufferSize: 127     // Match GRBL's buffer size
           }
         }));
-        this.addConsoleMessage('system', 'Applied optimal serial port settings');
+        
+        // Use appState instead of this
+        appState.addConsoleMessage('system', 'Applied optimal serial port settings');
       }
     });
     

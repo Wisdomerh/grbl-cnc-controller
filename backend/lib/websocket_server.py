@@ -229,6 +229,49 @@ class WebSocketServer:
                     'message': error_msg
                 }))
 
+        elif command == 'configure_serial':
+            settings = data.get('settings', {})
+            
+            # Apply serial settings
+            if self.serial_manager.is_connected():
+                # Temporarily disconnect
+                self.serial_manager.disconnect()
+                
+                # Update serial settings
+                baud_rate = settings.get('baudRate', 115200)
+                flow_control = settings.get('flowControl', False)
+                buffer_size = settings.get('bufferSize', 127)
+                
+                # Reconnect with new settings
+                port = self.serial_manager.last_port
+                if port:
+                    success = self.serial_manager.connect(
+                        port, 
+                        baud_rate,
+                        rtscts=flow_control
+                    )
+                    
+                    await websocket.send(json.dumps({
+                        'type': 'serial_config_result',
+                        'success': success,
+                        'message': "Serial settings applied" if success else "Failed to apply serial settings"
+                    }))
+                else:
+                    await websocket.send(json.dumps({
+                        'type': 'serial_config_result',
+                        'success': False,
+                        'message': "No port to reconnect to"
+                    }))
+            else:
+                # Store settings for next connection
+                self.serial_manager.preferred_settings = settings
+                
+                await websocket.send(json.dumps({
+                    'type': 'serial_config_result',
+                    'success': True,
+                    'message': "Serial settings will be applied on next connection"
+                }))
+
         # Disconnect command
         elif command == 'disconnect':
             await self.loop.run_in_executor(
