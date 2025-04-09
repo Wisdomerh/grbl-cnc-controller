@@ -740,7 +740,7 @@ class WebSocketServer:
         return True
 
     def _execute_job(self):
-        """Execute G-code job in a separate thread with improved reliability"""
+        """Execute G-code job in a separate thread with improved reliability and error handling"""
         try:
             # Increase this thread's priority if possible
             self.set_thread_priority()
@@ -751,8 +751,13 @@ class WebSocketServer:
             
             self._broadcast_job_status("Job starting")
             
+            # Set longer timeouts and better error handling
+            # If this attribute doesn't exist, add it to your serial_manager class
+            if hasattr(self.serial_manager, 'command_timeout'):
+                self.serial_manager.command_timeout = 10.0  # 10 second timeout
+            
             # Initialize adaptive timing
-            command_delay = 0.02  # Initial delay between commands
+            command_delay = 0.05
             last_response_time = 0
             
             # Main job execution loop
@@ -768,42 +773,66 @@ class WebSocketServer:
                     break
                 
                 try:
-                    # Get next command
-                    command = self.job_buffer[self.job_position]
+                    # Get next command with better error checking
+                    command = self.job_buffer[self.job_position].strip()
                     
                     # Skip empty commands and comments
-                    if not command or command.strip() == '' or command.startswith('(') or command.startswith(';'):
+                    if not command or command.startswith(';') or command.startswith('('):
                         self.job_position += 1
                         continue
                     
-                    # Send command to GRBL
-                    start_time = time.time()
-                    success = self.serial_manager.send_command(command)
-                    response_time = time.time() - start_time
+                    # Log the command being sent
+                    logger.info(f"Sending command {self.job_position+1}/{self.job_total}: {command}")
+                    
+                    # Try multiple times if needed
+                    max_retries = 3
+                    success = False
+                    
+                    for retry in range(max_retries):
+                        start_time = time.time()
+                        success = self.serial_manager.send_command(command)
+                        response_time = time.time() - start_time
+                        
+                        if success:
+                            # Store last successful response time
+                            last_response_time = response_time
+                            break
+                            
+                        logger.warning(f"Retry {retry+1}/{max_retries} for command: {command}")
+                        time.sleep(0.5)  # Wait before retry
                     
                     if not success:
-                        logger.error(f"Failed to send command: {command}")
+                        logger.error(f"Failed to send command after {max_retries} retries: {command}")
                         
                         # Update job state and broadcast error
                         self.job_state = 'error'
                         self._broadcast_job_status(f"Error sending command: {command}")
                         break
                     
-                    # Adaptive timing: adjust delay based on response time
-                    if response_time < 0.01:  # Very fast response
-                        command_delay = max(0.01, command_delay * 0.95)  # Slightly reduce delay
-                    elif response_time > 0.1:  # Slow response
-                        command_delay = min(0.5, command_delay * 1.05)  # Slightly increase delay
+                    # Add periodic status pings to make sure machine is still responsive
+                    if self.job_position % 10 == 0:
+                        # Send a status request
+                        self.serial_manager.send_immediate_command('?')
+                        
+                    # Adaptive timing: adjust delay based on command type and response time
+                    if 'G2' in command or 'G3' in command:  # Arc movements
+                        time.sleep(0.15)  # Longer delay for arc commands
+                    elif 'G0' in command or 'G1' in command:  # Linear movements
+                        # Adjust based on previous response time
+                        if response_time < 0.01:  # Very fast response
+                            command_delay = max(0.02, command_delay * 0.95)  # Slightly reduce delay
+                        elif response_time > 0.1:  # Slow response
+                            command_delay = min(0.25, command_delay * 1.05)  # Slightly increase delay
+                        
+                        time.sleep(command_delay)
+                    else:
+                        # Default delay for other commands
+                        time.sleep(0.05)
                     
-                    # Wait the calculated delay before next command
-                    time.sleep(command_delay)
-                    
-                    # Store last response time for tracking
-                    last_response_time = response_time
-                    
-                    # Add extra delay after complex operations (G2/G3 arcs)
-                    if 'G2' in command or 'G3' in command:
-                        time.sleep(0.1)  # Extra delay for arcs
+                    # Every 50 commands, add a small pause to let the controller catch up
+                    if self.job_position % 50 == 0 and self.job_position > 0:
+                        logger.info(f"Adding short pause at position {self.job_position} to prevent buffer issues")
+                        time.sleep(0.25)
                     
                     # Increment position
                     self.job_position += 1
@@ -838,6 +867,13 @@ class WebSocketServer:
             
             # Broadcast error
             self._broadcast_job_status(f"Error in job execution: {str(e)}")
+            
+            # Try to recover - send a soft reset to GRBL
+            try:
+                logger.info("Sending soft reset to recover from error")
+                self.serial_manager.send_immediate_command('\x18')  # Ctrl+X
+            except:
+                pass
 
     def set_thread_priority(self):
         """Set the current thread to high priority if possible."""
